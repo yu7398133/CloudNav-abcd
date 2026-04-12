@@ -321,7 +321,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                           + 子目录
                         </button>
                       )}
-                    )}
+                    </div>
                   </div>
 
                   {/* Actions */}
