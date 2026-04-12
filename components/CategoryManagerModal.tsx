@@ -441,6 +441,102 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
               categoryName={pendingAction.categoryName}
             />
           )}
+          
+          {/* 添加子目录弹窗 */}
+          {isSubCatAddOpen && selectedCategoryForSub && (
+            <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+              <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+                <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+                  <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">添加子目录</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubCatAddOpen(false);
+                      setNewSubCatName('');
+                      setNewSubCatIcon('Folder');
+                    }}
+                    className="p-1 rounded-md text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+                
+                <div className="p-4 space-y-4">
+                  {/* 父分类显示 */}
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    父分类：<span className="font-medium">{categories.find(c => c.id === selectedCategoryForSub)?.name}</span>
+                  </div>
+                  
+                  {/* 子目录名称 */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      子目录名称
+                    </label>
+                    <input
+                      type="text"
+                      value={newSubCatName}
+                      onChange={(e) => setNewSubCatName(e.target.value)}
+                      className="w-full p-2.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="例如：动漫、游戏资讯等"
+                      autoFocus
+                    />
+                  </div>
+                  
+                  {/* 子目录图标 */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      选择图标
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Icon name={newSubCatIcon} size={20} className="text-slate-600 dark:text-slate-400" />
+                      <input
+                        type="text"
+                        value={newSubCatIcon}
+                        onChange={(e) => setNewSubCatIcon(e.target.value)}
+                        className="flex-1 p-2.5 text-sm rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                        placeholder="例如：Folder, Book, Video 等"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsIconSelectorOpen(true);
+                          setIconSelectorTarget('new');
+                        }}
+                        className="p-2 text-slate-400 hover:text-blue-600 transition-colors"
+                        title="选择图标"
+                      >
+                        <Palette size={18} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* 底部按钮 */}
+                <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsSubCatAddOpen(false);
+                      setNewSubCatName('');
+                      setNewSubCatIcon('Folder');
+                    }}
+                    className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddSubCategory}
+                    disabled={!newSubCatName.trim()}
+                    className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg transition-colors flex items-center gap-1"
+                  >
+                    <Check size={16} />
+                    添加
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
