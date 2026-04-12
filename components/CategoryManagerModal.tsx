@@ -67,6 +67,14 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     const parentCategory = categories.find(c => c.id === selectedCategoryForSub);
     if (!parentCategory) return;
 
+    // 检查父目录是否已解锁
+    const parentLocked = parentCategory.password && !unlockedCategoryIds.has(parentCategory.id);
+    if (parentLocked) {
+      // 父目录已锁定，需要先输入密码
+      alert('该目录已锁定，请先输入密码解锁');
+      return;
+    }
+
     const newSubCatId = `sub_${Date.now()}`;
     const newSubCategory: Category = {
       id: newSubCatId,
@@ -82,7 +90,33 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
       return cat;
     });
 
+    // 先更新本地 UI
     onUpdateCategories(updatedCategories);
+    
+    // 保存新分类到 KV（通过调用父分类的保存接口）
+    try {
+      const parentCat = updatedCategories.find(c => c.id === parentCategory.id);
+      if (parentCat) {
+        // 调用 API 保存新分类
+        const response = await fetch('/api/storage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            categories: updatedCategories
+          }),
+          credentials: 'include' // 包含认证信息
+        });
+        
+        const result = await response.json();
+        if (!result.success) {
+          console.error('Failed to save categories:', result.error);
+          alert('保存失败，请检查网络连接或认证状态');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving categories:', error);
+      alert('保存失败，请检查网络连接或认证状态');
+    }
     
     // 重置表单
     setNewSubCatName('');
