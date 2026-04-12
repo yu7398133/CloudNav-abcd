@@ -2004,6 +2004,7 @@ function App() {
         onUpdateCategories={handleUpdateCategories}
         onDeleteCategory={handleDeleteCategory}
         onVerifyPassword={handleCategoryActionAuth}
+        authToken={authToken}
       />
 
       <BackupModal

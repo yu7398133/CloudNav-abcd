@@ -12,6 +12,7 @@ interface CategoryManagerModalProps {
   onUpdateCategories: (newCategories: Category[]) => void;
   onDeleteCategory: (id: string) => void;
   onVerifyPassword?: (password: string) => Promise<boolean>;
+  authToken?: string; // 添加 authToken 支持
 }
 
 const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({ 
@@ -20,7 +21,8 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   categories, 
   onUpdateCategories,
   onDeleteCategory,
-  onVerifyPassword
+  onVerifyPassword,
+  authToken
 }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -97,14 +99,16 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     try {
       const parentCat = updatedCategories.find(c => c.id === parentCategory.id);
       if (parentCat) {
-        // 调用 API 保存新分类
+        // 调用 API 保存新分类，使用 x-auth-password 头部传递认证信息
         const response = await fetch('/api/storage', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-auth-password': authToken || ''
+          },
           body: JSON.stringify({
             categories: updatedCategories
-          }),
-          credentials: 'include' // 包含认证信息
+          })
         });
         
         const result = await response.json();
