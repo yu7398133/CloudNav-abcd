@@ -294,34 +294,36 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <Icon name={cat.icon} size={16} />
-                        <span className="font-medium dark:text-slate-200 truncate">
-                          {cat.name}
-                          {cat.id === 'common' && (
-                            <span className="ml-2 text-xs text-slate-400">(默认分类，不可编辑)</span>
+                      <>
+                        <div className="flex items-center gap-2">
+                          <Icon name={cat.icon} size={16} />
+                          <span className="font-medium dark:text-slate-200 truncate">
+                            {cat.name}
+                            {cat.id === 'common' && (
+                              <span className="ml-2 text-xs text-slate-400">(默认分类，不可编辑)</span>
+                            )}
+                          </span>
+                          {cat.password && (
+                            <Lock size={12} className="text-slate-400" />
                           )}
-                        </span>
-                        {cat.password && (
-                          <Lock size={12} className="text-slate-400" />
+                        </div>
+                        
+                        {/* 二级目录功能 - 添加子目录按钮 */}
+                        {cat.id !== 'common' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedCategoryForSub(cat.id);
+                              setIsSubCatAddOpen(true);
+                            }}
+                            className="ml-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                            title="添加子目录"
+                          >
+                            + 子目录
+                          </button>
                         )}
-                      </div>
-                      
-                      {/* 二级目录功能 - 添加子目录按钮 */}
-                      {cat.id !== 'common' && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCategoryForSub(cat.id);
-                            setIsSubCatAddOpen(true);
-                          }}
-                          className="ml-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                          title="添加子目录"
-                        >
-                          + 子目录
-                        </button>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Actions */}
