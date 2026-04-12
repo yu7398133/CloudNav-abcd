@@ -15,6 +15,7 @@ export interface Category {
   name: string;
   icon: string; // Lucide icon name or emoji
   password?: string; // Optional password for category protection
+  subCategories?: Category[]; // 子目录
 }
 
 export interface SiteSettings {

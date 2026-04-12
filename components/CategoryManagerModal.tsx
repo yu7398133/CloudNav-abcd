@@ -34,6 +34,12 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const [isIconSelectorOpen, setIsIconSelectorOpen] = useState(false);
   const [iconSelectorTarget, setIconSelectorTarget] = useState<'edit' | 'new' | null>(null);
   
+  // 子目录相关状态
+  const [selectedCategoryForSub, setSelectedCategoryForSub] = useState<string | null>(null);
+  const [newSubCatName, setNewSubCatName] = useState('');
+  const [newSubCatIcon, setNewSubCatIcon] = useState('Folder');
+  const [isSubCatAddOpen, setIsSubCatAddOpen] = useState(false);
+  
   // 分类操作验证相关状态
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
@@ -52,6 +58,38 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
       [newCats[index], newCats[index + 1]] = [newCats[index + 1], newCats[index]];
     }
     onUpdateCategories(newCats);
+  };
+
+  // 添加子目录
+  const handleAddSubCategory = async () => {
+    if (!selectedCategoryForSub || !newSubCatName.trim()) return;
+    
+    const parentCategory = categories.find(c => c.id === selectedCategoryForSub);
+    if (!parentCategory) return;
+
+    const newSubCatId = `sub_${Date.now()}`;
+    const newSubCategory: Category = {
+      id: newSubCatId,
+      name: newSubCatName.trim(),
+      icon: newSubCatIcon,
+      createdAt: Date.now()
+    };
+
+    // 更新父分类，添加子目录
+    const updatedCategories = categories.map(cat => {
+      if (cat.id === parentCategory.id && cat.subCategories) {
+        return { ...cat, subCategories: [...cat.subCategories, newSubCategory] };
+      }
+      return cat;
+    });
+
+    onUpdateCategories(updatedCategories);
+    
+    // 重置表单
+    setNewSubCatName('');
+    setNewSubCatIcon('Folder');
+    setSelectedCategoryForSub(null);
+    setIsSubCatAddOpen(false);
   };
 
   // 处理密码验证
@@ -268,6 +306,21 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                           <Lock size={12} className="text-slate-400" />
                         )}
                       </div>
+                      
+                      {/* 添加子目录按钮 */}
+                      {cat.id !== 'common' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategoryForSub(cat.id);
+                            setIsSubCatAddOpen(true);
+                          }}
+                          className="ml-1 text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                          title="添加子目录"
+                        >
+                          + 子目录
+                        </button>
+                      )}
                     )}
                   </div>
 

@@ -2677,6 +2677,32 @@ function App() {
                     const category = categories.find(c => c.id === categoryId);
                     if (!category) return null;
 
+                    // 递归获取子目录中的链接
+                    const subCategoryLinks: Record<string, LinkItem[]> = {};
+                    const traverseCategories = (cats: Category[]) => {
+                      cats.forEach(cat => {
+                        if (cat.id === categoryId) {
+                          if (cat.subCategories && cat.subCategories.length > 0) {
+                            const subCatLinks: LinkItem[] = [];
+                            const subTraverse = (subCats: Category[]) => {
+                              subCats.forEach(subCat => {
+                                const subLinks = otherCategoryResults[subCat.id] || [];
+                                subCatLinks.push(...subLinks);
+                                if (subCat.subCategories && subCat.subCategories.length > 0) {
+                                  subTraverse(subCat.subCategories);
+                                }
+                              });
+                            };
+                            subTraverse(cat.subCategories);
+                            subCategoryLinks[categoryId] = subCatLinks;
+                          }
+                        } else if (cat.subCategories && cat.subCategories.length > 0) {
+                          traverseCategories(cat.subCategories);
+                        }
+                      });
+                    };
+                    traverseCategories(categories);
+
                     return (
                       <div key={categoryId} className="mb-6 last:mb-0">
                         <div className="flex items-center gap-2 mb-3">
@@ -2695,6 +2721,34 @@ function App() {
                         }`}>
                           {links.map(link => renderLinkCard(link))}
                         </div>
+                        
+                        {/* 渲染子目录 */}
+                        {category.subCategories && category.subCategories.length > 0 && (
+                          <div className="mt-6">
+                            {category.subCategories.map((subCat) => (
+                              <div key={subCat.id} className="mb-4 pl-2 border-l-2 border-slate-200 dark:border-slate-700">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <h4 className="text-xs font-medium text-slate-600 dark:text-slate-400">
+                                    <Icon name={subCat.icon} size={12} /> {subCat.name}
+                                  </h4>
+                                  <span className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-500 rounded-full">
+                                    {(otherCategoryResults[subCat.id] || []).length}
+                                  </span>
+                                </div>
+                                
+                                {otherCategoryResults[subCat.id] && (
+                                  <div className={`grid gap-2 ${
+                                    siteSettings.cardStyle === 'detailed' 
+                                      ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4' 
+                                      : 'grid-cols-2 md:grid-cols-4'
+                                  }`}>
+                                    {otherCategoryResults[subCat.id].map(link => renderLinkCard(link))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })
