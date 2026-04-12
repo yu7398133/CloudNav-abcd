@@ -307,7 +307,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                         )}
                       </div>
                       
-                      {/* 添加子目录按钮 */}
+                      {/* 二级目录功能 - 添加子目录按钮 */}
                       {cat.id !== 'common' && (
                         <button
                           type="button"
