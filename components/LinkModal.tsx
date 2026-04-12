@@ -414,8 +414,18 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
             onChange={(e) => setCategoryId(e.target.value)}
             className="w-full p-2 rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all"
             >
+            {/* 渲染所有分类和子目录 */}
             {categories.map(cat => (
-                <option key={cat.id} value={cat.id}>{cat.name}</option>
+              <React.Fragment key={cat.id}>
+                {/* 一级分类 */}
+                <optgroup label={cat.name}>
+                  <option value={cat.id}>─ {cat.name}</option>
+                  {/* 二级子目录 */}
+                  {cat.subCategories && cat.subCategories.length > 0 && cat.subCategories.map(subCat => (
+                    <option key={subCat.id} value={subCat.id}>  └─ {subCat.name}</option>
+                  ))}
+                </optgroup>
+              </React.Fragment>
             ))}
             </select>
           </div>

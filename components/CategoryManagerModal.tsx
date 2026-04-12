@@ -72,13 +72,12 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
       id: newSubCatId,
       name: newSubCatName.trim(),
       icon: newSubCatIcon,
-      createdAt: Date.now()
     };
 
     // 更新父分类，添加子目录
     const updatedCategories = categories.map(cat => {
-      if (cat.id === parentCategory.id && cat.subCategories) {
-        return { ...cat, subCategories: [...cat.subCategories, newSubCategory] };
+      if (cat.id === parentCategory.id) {
+        return { ...cat, subCategories: [...(cat.subCategories || []), newSubCategory] };
       }
       return cat;
     });
