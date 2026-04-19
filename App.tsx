@@ -2733,19 +2733,17 @@ function App() {
                                     <Icon name={subCat.icon} size={12} /> {subCat.name}
                                   </h4>
                                   <span className="px-1.5 py-0.5 text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-500 rounded-full">
-                                    {(otherCategoryResults[subCat.id] || []).length}
+                                    {links.filter(l => l.categoryId === subCat.id).length}
                                   </span>
                                 </div>
                                 
-                                {otherCategoryResults[subCat.id] && (
-                                  <div className={`grid gap-2 ${
-                                    siteSettings.cardStyle === 'detailed' 
-                                      ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4' 
-                                      : 'grid-cols-2 md:grid-cols-4'
-                                  }`}>
-                                    {otherCategoryResults[subCat.id].map(link => renderLinkCard(link))}
-                                  </div>
-                                )}
+                                <div className={`grid gap-2 ${
+                                  siteSettings.cardStyle === 'detailed' 
+                                    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4' 
+                                    : 'grid-cols-2 md:grid-cols-4'
+                                }`}>
+                                  {links.filter(l => l.categoryId === subCat.id).map(link => renderLinkCard(link))}
+                                </div>
                               </div>
                             ))}
                           </div>
