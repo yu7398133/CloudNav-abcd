@@ -178,6 +178,26 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
             </div>
           ))}
         </div>
+
+        {isSubCatAddOpen && (
+          <div className="absolute inset-0 z-60 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-xl w-full max-w-sm border border-slate-200 dark:border-slate-700">
+              <h4 className="text-lg font-semibold mb-4 dark:text-white">添加子目录</h4>
+              <input 
+                type="text" 
+                value={newSubCatName} 
+                onChange={(e) => setNewSubCatName(e.target.value)} 
+                className="w-full p-2 mb-4 rounded border dark:bg-slate-700 dark:text-white outline-none"
+                placeholder="输入子目录名称"
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setIsSubCatAddOpen(false)} className="px-4 py-2 text-sm rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:text-white">取消</button>
+                <button onClick={handleAddSubCategory} className="px-4 py-2 text-sm rounded bg-blue-500 text-white hover:bg-blue-600">确定</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
