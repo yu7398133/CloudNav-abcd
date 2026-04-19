@@ -44,7 +44,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const [isSubCatAddOpen, setIsSubCatAddOpen] = useState(false);
   
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<{\
+  const [pendingAction, setPendingAction] = useState<{
     type: 'edit' | 'delete';
     categoryId: string;
     categoryName: string;
