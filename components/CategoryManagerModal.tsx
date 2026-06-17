@@ -245,7 +245,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                   </div>
               )}
             </div>
-            </div>
+          </div>
           ))}
         </div>
 
