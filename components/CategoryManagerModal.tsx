@@ -213,7 +213,6 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                        </>
                     )}
                   </div>
-              </div>
               {/* 子目录列表 */}
               {cat.subCategories && cat.subCategories.length > 0 && (
                   <div className="ml-8 mt-2 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
