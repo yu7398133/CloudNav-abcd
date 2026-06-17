@@ -28,6 +28,9 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   const [newSubCatName, setNewSubCatName] = useState('');
   const [newSubCatIcon, setNewSubCatIcon] = useState('Folder');
   const [isSubCatAddOpen, setIsSubCatAddOpen] = useState(false);
+  const [editingSubId, setEditingSubId] = useState<string | null>(null);
+  const [editSubName, setEditSubName] = useState('');
+  const [editSubIcon, setEditSubIcon] = useState('Folder');
   
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<{
@@ -91,6 +94,42 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     } catch (error) {
       alert('保存失败，请检查网络');
     }
+  };
+
+  const handleStartEditSub = (subCat: Category) => {
+    setEditingSubId(subCat.id);
+    setEditSubName(subCat.name);
+    setEditSubIcon(subCat.icon);
+  };
+
+  const saveEditSub = (parentId: string) => {
+    const updated = categories.map(c => {
+      if (c.id === parentId && c.subCategories) {
+        return {
+          ...c,
+          subCategories: c.subCategories.map(sub => 
+            sub.id === editingSubId ? { ...sub, name: editSubName, icon: editSubIcon } : sub
+          )
+        };
+      }
+      return c;
+    });
+    onUpdateCategories(updated);
+    setEditingSubId(null);
+  };
+
+  const handleDeleteSub = (parentId: string, subId: string) => {
+    if (!window.confirm('确定要删除该子目录吗？')) return;
+    const updated = categories.map(c => {
+      if (c.id === parentId && c.subCategories) {
+        return {
+          ...c,
+          subCategories: c.subCategories.filter(sub => sub.id !== subId)
+        };
+      }
+      return c;
+    });
+    onUpdateCategories(updated);
   };
 
   const handleStartEdit = (cat: Category) => {
@@ -175,6 +214,37 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                     )}
                   </div>
               </div>
+              {/* 子目录列表 */}
+              {cat.subCategories && cat.subCategories.length > 0 && (
+                  <div className="ml-8 mt-2 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
+                      {cat.subCategories.map(subCat => (
+                          <div key={subCat.id} className="flex items-center gap-2 p-1.5 rounded bg-white dark:bg-slate-800">
+                              {editingSubId === subCat.id ? (
+                                  <>
+                                      <Icon name={editSubIcon} size={12} />
+                                      <input 
+                                          type="text" 
+                                          value={editSubName} 
+                                          onChange={(e) => setEditSubName(e.target.value)} 
+                                          className="flex-1 p-1 px-2 text-xs rounded border border-blue-500 dark:bg-slate-700 dark:text-white outline-none"
+                                          autoFocus
+                                      />
+                                      <button onClick={() => saveEditSub(cat.id)} className="text-green-500 p-1"><Check size={12}/></button>
+                                      <button onClick={() => setEditingSubId(null)} className="text-slate-400 p-1"><X size={12}/></button>
+                                  </>
+                              ) : (
+                                  <>
+                                      <Icon name={subCat.icon} size={12} />
+                                      <span className="text-xs dark:text-slate-300 flex-1">{subCat.name}</span>
+                                      <button onClick={() => handleStartEditSub(subCat)} className="p-1 text-slate-400 hover:text-blue-500"><Edit2 size={10} /></button>
+                                      <button onClick={() => handleDeleteSub(cat.id, subCat.id)} className="p-1 text-slate-400 hover:text-red-500"><Trash2 size={10} /></button>
+                                  </>
+                              )}
+                          </div>
+                      ))}
+                  </div>
+              )}
+            </div>
             </div>
           ))}
         </div>

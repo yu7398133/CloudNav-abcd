@@ -53,6 +53,7 @@ function App() {
   const [links, setLinks] = useState<LinkItem[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -201,7 +202,15 @@ function App() {
         }
         
         // 检查是否有链接的categoryId不存在于当前分类中，将这些链接移动到"常用推荐"
-        const validCategoryIds = new Set(loadedCategories.map(c => c.id));
+        // 包括子目录的ID
+        const validCategoryIds = new Set<string>();
+        const collectIds = (cats: Category[]) => {
+          cats.forEach(c => {
+            validCategoryIds.add(c.id);
+            if (c.subCategories) collectIds(c.subCategories);
+          });
+        };
+        collectIds(loadedCategories);
         let loadedLinks = parsed.links || INITIAL_LINKS;
         loadedLinks = loadedLinks.map(link => {
           if (!validCategoryIds.has(link.categoryId)) {
@@ -1308,6 +1317,17 @@ function App() {
 
   // --- Category Management & Security ---
 
+  // 递归获取分类及其所有子分类的ID
+  const getAllCategoryIds = (cat: Category): string[] => {
+    const ids = [cat.id];
+    if (cat.subCategories) {
+      cat.subCategories.forEach(sub => {
+        ids.push(...getAllCategoryIds(sub));
+      });
+    }
+    return ids;
+  };
+
   const handleCategoryClick = (cat: Category) => {
       // If category has password and is NOT unlocked
       if (cat.password && !unlockedCategoryIds.has(cat.id)) {
@@ -1316,6 +1336,18 @@ function App() {
           return;
       }
       setSelectedCategory(cat.id);
+      setSelectedSubCategory(null);
+      setSidebarOpen(false);
+  };
+
+  const handleSubCategoryClick = (subCat: Category, parentCat: Category) => {
+      if (parentCat.password && !unlockedCategoryIds.has(parentCat.id)) {
+          setCatAuthModalData(parentCat);
+          setSidebarOpen(false);
+          return;
+      }
+      setSelectedCategory(parentCat.id);
+      setSelectedSubCategory(subCat.id);
       setSidebarOpen(false);
   };
 
@@ -1715,19 +1747,28 @@ function App() {
 
     // Category Filter
     if (selectedCategory !== 'all') {
-      result = result.filter(l => l.categoryId === selectedCategory);
+      if (selectedSubCategory) {
+        // 如果选中了子目录，只显示该子目录的链接
+        result = result.filter(l => l.categoryId === selectedSubCategory);
+      } else {
+        // 如果选中了一级目录，显示该目录及其所有子目录的链接
+        const cat = categories.find(c => c.id === selectedCategory);
+        if (cat) {
+          const allIds = getAllCategoryIds(cat);
+          result = result.filter(l => allIds.includes(l.categoryId));
+        } else {
+          result = result.filter(l => l.categoryId === selectedCategory);
+        }
+      }
     }
     
-    // 按照order字段排序，如果没有order字段则按创建时间排序
-    // 修改排序逻辑：order值越大排在越前面，新增的卡片order值最大，会排在最前面
-    // 我们需要反转这个排序，让新增的卡片(order值最大)排在最后面
+    // 按照order字段排序
     return result.sort((a, b) => {
       const aOrder = a.order !== undefined ? a.order : a.createdAt;
       const bOrder = b.order !== undefined ? b.order : b.createdAt;
-      // 改为升序排序，这样order值小(旧卡片)的排在前面，order值大(新卡片)的排在后面
       return aOrder - bOrder;
     });
-  }, [links, selectedCategory, searchQuery, categories, unlockedCategoryIds]);
+  }, [links, selectedCategory, selectedSubCategory, searchQuery, categories, unlockedCategoryIds]);
 
   // 计算其他目录的搜索结果
   const otherCategoryResults = useMemo(() => {
@@ -2100,22 +2141,70 @@ function App() {
 
             {categories.map(cat => {
                 const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
+                const hasSubCategories = cat.subCategories && cat.subCategories.length > 0;
+                const isSelected = selectedCategory === cat.id && !selectedSubCategory;
+                const isExpanded = selectedCategory === cat.id || (cat.subCategories && cat.subCategories.some(sub => selectedSubCategory === sub.id));
+                
                 return (
-                  <button
-                    key={cat.id}
-                    onClick={() => handleCategoryClick(cat)}
-                    className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${
-                      selectedCategory === cat.id 
-                        ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
-                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${selectedCategory === cat.id ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
-                      {isLocked ? <Lock size={16} className="text-amber-500" /> : <Icon name={cat.icon} size={16} />}
-                    </div>
-                    <span className="truncate flex-1 text-left">{cat.name}</span>
-                    {selectedCategory === cat.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
-                  </button>
+                  <div key={cat.id}>
+                    <button
+                      onClick={() => handleCategoryClick(cat)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${
+                        isSelected
+                          ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
+                          : selectedCategory === cat.id
+                            ? 'text-blue-500 dark:text-blue-400 font-medium'
+                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${isSelected ? 'bg-blue-100 dark:bg-blue-800' : selectedCategory === cat.id ? 'bg-blue-50 dark:bg-blue-900/50' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                        {isLocked ? <Lock size={16} className="text-amber-500" /> : <Icon name={cat.icon} size={16} />}
+                      </div>
+                      <span className="truncate flex-1 text-left">{cat.name}</span>
+                      {hasSubCategories && (
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="12" 
+                          height="12" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                          className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                        >
+                          <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                      )}
+                      {isSelected && !hasSubCategories && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
+                    </button>
+                    
+                    {hasSubCategories && isExpanded && (
+                      <div className="ml-4 mt-0.5 space-y-0.5 border-l-2 border-slate-200 dark:border-slate-700 pl-2">
+                        {cat.subCategories!.map(subCat => {
+                          const isSubSelected = selectedSubCategory === subCat.id;
+                          return (
+                            <button
+                              key={subCat.id}
+                              onClick={() => handleSubCategoryClick(subCat, cat)}
+                              className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm ${
+                                isSubSelected
+                                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium'
+                                  : 'text-slate-500 dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700'
+                              }`}
+                            >
+                              <div className={`p-1 rounded transition-colors flex items-center justify-center ${isSubSelected ? 'bg-blue-100 dark:bg-blue-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                                <Icon name={subCat.icon} size={12} />
+                              </div>
+                              <span className="truncate flex-1 text-left">{subCat.name}</span>
+                              {isSubSelected && <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 );
             })}
         </div>
@@ -2510,11 +2599,27 @@ function App() {
                             ? (searchQuery ? '搜索结果' : '所有链接') 
                             : (
                                 <>
-                                    {categories.find(c => c.id === selectedCategory)?.name}
+                                    {selectedSubCategory 
+                                        ? (() => {
+                                            const parentCat = categories.find(c => c.id === selectedCategory);
+                                            const subCat = parentCat?.subCategories?.find(s => s.id === selectedSubCategory);
+                                            return subCat?.name || selectedSubCategory;
+                                        })()
+                                        : categories.find(c => c.id === selectedCategory)?.name
+                                    }
                                     {isCategoryLocked(selectedCategory) && <Lock size={14} className="text-amber-500" />}
                                     <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full">
                                         {displayedLinks.length}
                                     </span>
+                                    {selectedSubCategory && (
+                                        <button 
+                                            onClick={() => setSelectedSubCategory(null)}
+                                            className="ml-2 text-xs text-slate-500 hover:text-blue-500 transition-colors"
+                                            title="返回上级目录"
+                                        >
+                                            ← 返回{categories.find(c => c.id === selectedCategory)?.name}
+                                        </button>
+                                    )}
                                 </>
                             )
                          }
@@ -2646,13 +2751,68 @@ function App() {
                             </SortableContext>
                         </DndContext>
                     ) : (
-                        <div className={`grid gap-3 ${
-                          siteSettings.cardStyle === 'detailed' 
-                            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
-                            : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
-                        }`}>
-                            {displayedLinks.map(link => renderLinkCard(link))}
-                        </div>
+                        (() => {
+                            const currentCat = categories.find(c => c.id === selectedCategory);
+                            const hasSubCats = currentCat?.subCategories && currentCat.subCategories.length > 0;
+                            
+                            // 如果选中了子目录，或没有子目录，或在搜索中，使用普通网格
+                            if (selectedSubCategory || !hasSubCats || searchQuery.trim()) {
+                                return (
+                                    <div className={`grid gap-3 ${
+                                      siteSettings.cardStyle === 'detailed' 
+                                        ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
+                                        : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                                    }`}>
+                                        {displayedLinks.map(link => renderLinkCard(link))}
+                                    </div>
+                                );
+                            }
+                            
+                            // 按子目录分组显示
+                            const subCats = currentCat!.subCategories!;
+                            const directLinks = displayedLinks.filter(l => l.categoryId === selectedCategory);
+                            
+                            return (
+                                <div className="space-y-6">
+                                    {directLinks.length > 0 && (
+                                        <div>
+                                            <div className={`grid gap-3 ${
+                                              siteSettings.cardStyle === 'detailed' 
+                                                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
+                                                : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                                            }`}>
+                                                {directLinks.map(link => renderLinkCard(link))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {subCats.map(subCat => {
+                                        const subLinks = displayedLinks.filter(l => l.categoryId === subCat.id);
+                                        if (subLinks.length === 0) return null;
+                                        return (
+                                            <div key={subCat.id} className="border-l-2 border-blue-200 dark:border-blue-800 pl-4">
+                                                <div className="flex items-center gap-2 mb-3">
+                                                    <Icon name={subCat.icon} size={14} />
+                                                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                                        {subCat.name}
+                                                    </h3>
+                                                    <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full">
+                                                        {subLinks.length}
+                                                    </span>
+                                                </div>
+                                                <div className={`grid gap-3 ${
+                                                  siteSettings.cardStyle === 'detailed' 
+                                                    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
+                                                    : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                                                }`}>
+                                                    {subLinks.map(link => renderLinkCard(link))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()
                     )
                  )}
             </section>
