@@ -54,6 +54,7 @@ function App() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedSubCategory, setSelectedSubCategory] = useState<string | null>(null);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -219,8 +220,15 @@ function App() {
           return link;
         });
         
-        setLinks(loadedLinks);
-        setCategories(loadedCategories);
+        // 确保每个分类有同名子分类
+        const migrated = ensureSameNameSubCategories(loadedCategories, loadedLinks);
+        setLinks(migrated.links);
+        setCategories(migrated.categories);
+        // 如果有变更，保存到本地和云端
+        if (migrated.categories !== loadedCategories || migrated.links !== loadedLinks) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: migrated.links, categories: migrated.categories }));
+            if (authToken) syncToCloud(migrated.links, migrated.categories, authToken);
+        }
       } catch (e) {
         setLinks(INITIAL_LINKS);
         setCategories(DEFAULT_CATEGORIES);
@@ -553,12 +561,18 @@ function App() {
             if (res.ok) {
                 const data = await res.json();
                 if (data.links && data.links.length > 0) {
-                    setLinks(data.links);
-                    setCategories(data.categories || DEFAULT_CATEGORIES);
-                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+                    // 确保每个分类有同名子分类
+                    const migrated = ensureSameNameSubCategories(data.categories || DEFAULT_CATEGORIES, data.links);
+                    setLinks(migrated.links);
+                    setCategories(migrated.categories);
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: migrated.links, categories: migrated.categories }));
                     
-                    // 加载链接图标缓存
-                    loadLinkIcons(data.links);
+                    // 如果有迁移，同步到云端
+                    if (migrated.links !== data.links || migrated.categories !== (data.categories || DEFAULT_CATEGORIES)) {
+                        if (authToken) syncToCloud(migrated.links, migrated.categories, authToken);
+                    }
+                    
+                    loadLinkIcons(migrated.links);
                     hasCloudData = true;
                 }
             } else if (res.status === 401) {
@@ -1328,8 +1342,59 @@ function App() {
     return ids;
   };
 
+  // 确保每个一级分类都有一个同名的二级子分类，并将链接迁移过去
+  const ensureSameNameSubCategories = (cats: Category[], lnks: LinkItem[]): { categories: Category[], links: LinkItem[] } => {
+    let categoriesChanged = false;
+    let linksChanged = false;
+    const newCategories = cats.map(cat => {
+      if (!cat.subCategories || cat.subCategories.length === 0) {
+        // 没有子分类，创建一个同名子分类
+        categoriesChanged = true;
+        return {
+          ...cat,
+          subCategories: [{
+            id: `sub_${cat.id}_default`,
+            name: cat.name,
+            icon: cat.icon,
+          }]
+        };
+      }
+      // 检查是否已有同名子分类
+      const hasSameName = cat.subCategories.some(sub => sub.name === cat.name);
+      if (!hasSameName) {
+        categoriesChanged = true;
+        return {
+          ...cat,
+          subCategories: [
+            { id: `sub_${cat.id}_default`, name: cat.name, icon: cat.icon },
+            ...cat.subCategories,
+          ]
+        };
+      }
+      return cat;
+    });
+
+    // 将直接属于一级分类的链接迁移到同名子分类
+    const newLinks = lnks.map(link => {
+      const cat = newCategories.find(c => c.id === link.categoryId);
+      if (cat && cat.subCategories && cat.subCategories.length > 0) {
+        // 链接属于一级分类，需要迁移到同名子分类
+        const sameNameSub = cat.subCategories.find(sub => sub.name === cat.name);
+        if (sameNameSub && link.categoryId === cat.id) {
+          linksChanged = true;
+          return { ...link, categoryId: sameNameSub.id };
+        }
+      }
+      return link;
+    });
+
+    return {
+      categories: categoriesChanged ? newCategories : cats,
+      links: linksChanged ? newLinks : lnks,
+    };
+  };
+
   const handleCategoryClick = (cat: Category) => {
-      // If category has password and is NOT unlocked
       if (cat.password && !unlockedCategoryIds.has(cat.id)) {
           setCatAuthModalData(cat);
           setSidebarOpen(false);
@@ -1338,6 +1403,18 @@ function App() {
       setSelectedCategory(cat.id);
       setSelectedSubCategory(null);
       setSidebarOpen(false);
+  };
+
+  const handleCategoryDoubleClick = (catId: string) => {
+      setExpandedCategories(prev => {
+          const next = new Set(prev);
+          if (next.has(catId)) {
+              next.delete(catId);
+          } else {
+              next.add(catId);
+          }
+          return next;
+      });
   };
 
   const handleSubCategoryClick = (subCat: Category, parentCat: Category) => {
@@ -2143,12 +2220,13 @@ function App() {
                 const isLocked = cat.password && !unlockedCategoryIds.has(cat.id);
                 const hasSubCategories = cat.subCategories && cat.subCategories.length > 0;
                 const isSelected = selectedCategory === cat.id && !selectedSubCategory;
-                const isExpanded = selectedCategory === cat.id || (cat.subCategories && cat.subCategories.some(sub => selectedSubCategory === sub.id));
+                const isExpanded = expandedCategories.has(cat.id);
                 
                 return (
                   <div key={cat.id}>
                     <button
                       onClick={() => handleCategoryClick(cat)}
+                      onDoubleClick={(e) => { e.stopPropagation(); handleCategoryDoubleClick(cat.id); }}
                       className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${
                         isSelected
                           ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
