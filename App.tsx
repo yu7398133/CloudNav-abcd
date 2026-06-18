@@ -2417,7 +2417,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.7.6 (支持二级目录)</span>
+                 <span>Fork 项目 v1.7.7 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -2784,7 +2784,13 @@ function App() {
                                             const subCat = parentCat?.subCategories?.find(s => s.id === selectedSubCategory);
                                             return subCat?.name || selectedSubCategory;
                                         })()
-                                        : categories.find(c => c.id === selectedCategory)?.name
+                                        : (() => {
+                                            const cat = categories.find(c => c.id === selectedCategory);
+                                            const hasSubCats = cat?.subCategories && cat.subCategories.length > 0;
+                                            // 有子目录时不显示一级目录名称，只显示总数
+                                            if (hasSubCats) return null;
+                                            return cat?.name;
+                                        })()
                                     }
                                     {isCategoryLocked(selectedCategory) && <Lock size={14} className="text-amber-500" />}
                                     <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full">
