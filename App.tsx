@@ -136,6 +136,12 @@ function App() {
   const [isBatchEditMode, setIsBatchEditMode] = useState(false); // 是否处于批量编辑模式
   const [selectedLinks, setSelectedLinks] = useState<Set<string>>(new Set()); // 选中的链接ID集合
   
+  // Drag Selection State (框选)
+  const [isDragSelecting, setIsDragSelecting] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
+  
   // Context Menu State
   const [contextMenu, setContextMenu] = useState<{
     isOpen: boolean;
@@ -825,6 +831,79 @@ function App() {
       // 否则全选当前显示的所有链接
       setSelectedLinks(new Set(currentLinkIds));
     }
+  };
+
+  // Drag Selection (框选) handlers
+  const handleDragSelectionStart = (e: React.MouseEvent) => {
+    if (!isBatchEditMode) return;
+    // Only start on left mouse button and not on a link card
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-link-card]')) return;
+    
+    const rect = contentAreaRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    
+    setIsDragSelecting(true);
+    setDragStart({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    setDragCurrent({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    e.preventDefault();
+  };
+
+  const handleDragSelectionMove = (e: React.MouseEvent) => {
+    if (!isDragSelecting || !dragStart) return;
+    const rect = contentAreaRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setDragCurrent({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+  };
+
+  const handleDragSelectionEnd = () => {
+    if (!isDragSelecting || !dragStart || !dragCurrent) {
+      setIsDragSelecting(false);
+      return;
+    }
+    
+    // Calculate selection rectangle
+    const left = Math.min(dragStart.x, dragCurrent.x);
+    const top = Math.min(dragStart.y, dragCurrent.y);
+    const right = Math.max(dragStart.x, dragCurrent.x);
+    const bottom = Math.max(dragStart.y, dragCurrent.y);
+    
+    // Only select if the drag area is meaningful (not just a click)
+    if (right - left < 5 && bottom - top < 5) {
+      setIsDragSelecting(false);
+      setDragStart(null);
+      setDragCurrent(null);
+      return;
+    }
+    
+    // Find all link cards within the selection box
+    const container = contentAreaRef.current;
+    if (container) {
+      const containerRect = container.getBoundingClientRect();
+      const cards = container.querySelectorAll('[data-link-card]');
+      const newSelected = new Set(selectedLinks);
+      
+      cards.forEach(card => {
+        const cardRect = card.getBoundingClientRect();
+        const cardLeft = cardRect.left - containerRect.left;
+        const cardTop = cardRect.top - containerRect.top;
+        const cardRight = cardLeft + cardRect.width;
+        const cardBottom = cardTop + cardRect.height;
+        
+        // Check if card overlaps with selection box
+        if (cardLeft < right && cardRight > left && cardTop < bottom && cardBottom > top) {
+          const linkId = card.getAttribute('data-link-id');
+          if (linkId) newSelected.add(linkId);
+        }
+      });
+      
+      setSelectedLinks(newSelected);
+    }
+    
+    setIsDragSelecting(false);
+    setDragStart(null);
+    setDragCurrent(null);
   };
 
   // --- Actions ---
@@ -1979,6 +2058,8 @@ function App() {
     return (
       <div
         key={link.id}
+        data-link-card
+        data-link-id={link.id}
         className={`group relative transition-all duration-200 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/20 ${
           isSelected 
             ? 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-800' 
@@ -2335,7 +2416,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.7.3 (支持二级目录)</span>
+                 <span>Fork 项目 v1.7.4 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -2579,7 +2660,26 @@ function App() {
         </header>
 
         {/* Content Scroll Area */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8">
+        <div 
+          ref={contentAreaRef}
+          className="flex-1 overflow-y-auto p-4 lg:p-8 space-y-8 relative"
+          onMouseDown={handleDragSelectionStart}
+          onMouseMove={handleDragSelectionMove}
+          onMouseUp={handleDragSelectionEnd}
+          onMouseLeave={handleDragSelectionEnd}
+        >
+            {/* Drag Selection Box Overlay (框选) */}
+            {isDragSelecting && dragStart && dragCurrent && (
+                <div
+                    className="absolute border-2 border-blue-500 bg-blue-500/10 dark:bg-blue-400/10 pointer-events-none z-50"
+                    style={{
+                        left: Math.min(dragStart.x, dragCurrent.x),
+                        top: Math.min(dragStart.y, dragCurrent.y),
+                        width: Math.abs(dragCurrent.x - dragStart.x),
+                        height: Math.abs(dragCurrent.y - dragStart.y),
+                    }}
+                />
+            )}
             
             {/* 1. Pinned Area (Custom Top Area) */}
             {pinnedLinks.length > 0 && !searchQuery && (selectedCategory === 'all') && (
@@ -2760,15 +2860,25 @@ function App() {
                                                   <Upload size={14} />
                                                   <span>批量移动</span>
                                               </button>
-                                              <div className="absolute top-full right-0 mt-1 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200">
+                                              <div className="absolute top-full right-0 mt-1 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 max-h-80 overflow-y-auto">
                                                   {categories.filter(cat => cat.id !== selectedCategory).map(cat => (
-                                                      <button
-                                                          key={cat.id}
-                                                          onClick={() => handleBatchMove(cat.id)}
-                                                          className="w-full text-left px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-lg last:rounded-b-lg"
-                                                      >
-                                                          {cat.name}
-                                                      </button>
+                                                      <div key={cat.id}>
+                                                          <button
+                                                              onClick={() => handleBatchMove(cat.id)}
+                                                              className="w-full text-left px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-lg"
+                                                          >
+                                                              {cat.name}
+                                                          </button>
+                                                          {cat.subCategories && cat.subCategories.length > 0 && cat.subCategories.map(sub => (
+                                                              <button
+                                                                  key={sub.id}
+                                                                  onClick={() => handleBatchMove(sub.id)}
+                                                                  className="w-full text-left px-8 py-1.5 text-xs text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                              >
+                                                                  {sub.name}
+                                                              </button>
+                                                          ))}
+                                                      </div>
                                                   ))}
                                               </div>
                                           </div>
@@ -2807,28 +2917,89 @@ function App() {
                         )}
                     </div>
                  ) : (
-                    isSortingMode === selectedCategory ? (
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCorners}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext
-                                items={displayedLinks.map(link => link.id)}
-                                strategy={rectSortingStrategy}
-                            >
-                                <div className={`grid gap-3 ${
-                                  siteSettings.cardStyle === 'detailed' 
-                                    ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
-                                    : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
-                                }`}>
-                                    {displayedLinks.map(link => (
-                                        <SortableLinkCard key={link.id} link={link} />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                        </DndContext>
-                    ) : (
+                    isSortingMode === selectedCategory ? (() => {
+                        const currentCat = categories.find(c => c.id === selectedCategory);
+                        const hasSubCats = currentCat?.subCategories && currentCat.subCategories.length > 0 && !selectedSubCategory;
+                        
+                        if (!hasSubCats) {
+                            // 无子目录或选中了子目录，使用普通排序网格
+                            return (
+                                <DndContext
+                                    sensors={sensors}
+                                    collisionDetection={closestCorners}
+                                    onDragEnd={handleDragEnd}
+                                >
+                                    <SortableContext
+                                        items={displayedLinks.map(link => link.id)}
+                                        strategy={rectSortingStrategy}
+                                    >
+                                        <div className={`grid gap-3 ${
+                                          siteSettings.cardStyle === 'detailed' 
+                                            ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
+                                            : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                                        }`}>
+                                            {displayedLinks.map(link => (
+                                                <SortableLinkCard key={link.id} link={link} />
+                                            ))}
+                                        </div>
+                                    </SortableContext>
+                                </DndContext>
+                            );
+                        }
+                        
+                        // 有子目录，按子目录分组排序
+                        const subCats = currentCat!.subCategories!;
+                        const directLinks = displayedLinks.filter(l => l.categoryId === selectedCategory);
+                        
+                        return (
+                            <div className="space-y-6">
+                                {directLinks.length > 0 && (
+                                    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+                                        <SortableContext items={directLinks.map(l => l.id)} strategy={rectSortingStrategy}>
+                                            <div className={`grid gap-3 ${
+                                              siteSettings.cardStyle === 'detailed' 
+                                                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
+                                                : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                                            }`}>
+                                                {directLinks.map(link => (<SortableLinkCard key={link.id} link={link} />
+                                                ))}
+                                            </div>
+                                        </SortableContext>
+                                    </DndContext>
+                                )}
+                                
+                                {subCats.map(subCat => {
+                                    const subLinks = displayedLinks.filter(l => l.categoryId === subCat.id);
+                                    if (subLinks.length === 0) return null;
+                                    return (
+                                        <div key={subCat.id} className="border-l-2 border-blue-200 dark:border-blue-800 pl-4">
+                                            <div className="flex items-center gap-2 mb-3">
+                                                <Icon name={subCat.icon} size={14} />
+                                                <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                                                    {subCat.name}
+                                                </h3>
+                                                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-full">
+                                                    {subLinks.length}
+                                                </span>
+                                            </div>
+                                            <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+                                                <SortableContext items={subLinks.map(l => l.id)} strategy={rectSortingStrategy}>
+                                                    <div className={`grid gap-3 ${
+                                                      siteSettings.cardStyle === 'detailed' 
+                                                        ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
+                                                        : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
+                                                    }`}>
+                                                        {subLinks.map(link => (<SortableLinkCard key={link.id} link={link} />
+                                                        ))}
+                                                    </div>
+                                                </SortableContext>
+                                            </DndContext>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        );
+                    })() : (
                         (() => {
                             const currentCat = categories.find(c => c.id === selectedCategory);
                             const hasSubCats = currentCat?.subCategories && currentCat.subCategories.length > 0;
