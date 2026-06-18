@@ -836,10 +836,11 @@ function App() {
   // Drag Selection (框选) handlers
   const handleDragSelectionStart = (e: React.MouseEvent) => {
     if (!isBatchEditMode) return;
-    // Only start on left mouse button and not on a link card
+    // Only start on left mouse button
     if (e.button !== 0) return;
     const target = e.target as HTMLElement;
-    if (target.closest('[data-link-card]')) return;
+    // Don't start drag on link cards, buttons, or other interactive elements
+    if (target.closest('[data-link-card]') || target.closest('button') || target.closest('a') || target.closest('input') || target.closest('select')) return;
     
     const rect = contentAreaRef.current?.getBoundingClientRect();
     if (!rect) return;
