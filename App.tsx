@@ -2417,7 +2417,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.7.4 (支持二级目录)</span>
+                 <span>Fork 项目 v1.7.5 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -2862,7 +2862,12 @@ function App() {
                                                   <span>批量移动</span>
                                               </button>
                                               <div className="absolute top-full right-0 mt-1 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 max-h-80 overflow-y-auto">
-                                                  {categories.filter(cat => cat.id !== selectedCategory).map(cat => (
+                                                  {categories.filter(cat => {
+                                                      if (cat.id === selectedCategory) return false;
+                                                      // 也排除属于当前分类的子目录
+                                                      if (selectedSubCategory && cat.subCategories?.some(sub => sub.id === selectedSubCategory)) return false;
+                                                      return true;
+                                                  }).map(cat => (
                                                       <div key={cat.id}>
                                                           <button
                                                               onClick={() => handleBatchMove(cat.id)}
@@ -2870,7 +2875,9 @@ function App() {
                                                           >
                                                               {cat.name}
                                                           </button>
-                                                          {cat.subCategories && cat.subCategories.length > 0 && cat.subCategories.map(sub => (
+                                                          {cat.subCategories && cat.subCategories.length > 0 && cat.subCategories
+                                                              .filter(sub => sub.id !== selectedSubCategory)
+                                                              .map(sub => (
                                                               <button
                                                                   key={sub.id}
                                                                   onClick={() => handleBatchMove(sub.id)}
@@ -2950,25 +2957,9 @@ function App() {
                         
                         // 有子目录，按子目录分组排序
                         const subCats = currentCat!.subCategories!;
-                        const directLinks = displayedLinks.filter(l => l.categoryId === selectedCategory);
                         
                         return (
                             <div className="space-y-6">
-                                {directLinks.length > 0 && (
-                                    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
-                                        <SortableContext items={directLinks.map(l => l.id)} strategy={rectSortingStrategy}>
-                                            <div className={`grid gap-3 ${
-                                              siteSettings.cardStyle === 'detailed' 
-                                                ? 'grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6' 
-                                                : 'grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8'
-                                            }`}>
-                                                {directLinks.map(link => (<SortableLinkCard key={link.id} link={link} />
-                                                ))}
-                                            </div>
-                                        </SortableContext>
-                                    </DndContext>
-                                )}
-                                
                                 {subCats.map(subCat => {
                                     const subLinks = displayedLinks.filter(l => l.categoryId === subCat.id);
                                     if (subLinks.length === 0) return null;
