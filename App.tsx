@@ -413,6 +413,11 @@ function App() {
           setSelectedSubCategory(sub.id);
           // 展开该一级目录
           setExpandedCategories(prev => new Set(prev).add(cat.id));
+          // 标记需要滚动到子目录
+          setTimeout(() => {
+            const el = document.querySelector(`[data-sub-cat-id="${sub.id}"]`);
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }, 100);
           break;
         }
       }
@@ -2372,6 +2377,7 @@ function App() {
                           return (
                             <button
                               key={subCat.id}
+                              data-sub-cat-id={subCat.id}
                               onClick={() => handleSubCategoryClick(subCat, cat)}
                               className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-sm ${
                                 isSubSelected
@@ -2442,7 +2448,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.8.1 (支持二级目录)</span>
+                 <span>Fork 项目 v1.8.2 (支持二级目录)</span>
                </a>
             </div>
         </div>
