@@ -395,6 +395,31 @@ function App() {
     closeContextMenu();
   };
 
+  const locateCategoryFromContextMenu = () => {
+    if (!contextMenu.link) return;
+    const link = contextMenu.link;
+    // 找到该链接所属的分类
+    for (const cat of categories) {
+      if (cat.id === link.categoryId) {
+        // 属于一级目录
+        setSelectedCategory(cat.id);
+        setSelectedSubCategory(null);
+        break;
+      }
+      if (cat.subCategories) {
+        const sub = cat.subCategories.find(s => s.id === link.categoryId);
+        if (sub) {
+          setSelectedCategory(cat.id);
+          setSelectedSubCategory(sub.id);
+          // 展开该一级目录
+          setExpandedCategories(prev => new Set(prev).add(cat.id));
+          break;
+        }
+      }
+    }
+    closeContextMenu();
+  };
+
   // 加载链接图标缓存
   const loadLinkIcons = async (linksToLoad: LinkItem[]) => {
     if (!authToken) return; // 只有在已登录状态下才加载图标缓存
@@ -2417,7 +2442,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.8.0 (支持二级目录)</span>
+                 <span>Fork 项目 v1.8.1 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -3190,6 +3215,14 @@ function App() {
             onEditLink={editLinkFromContextMenu}
             onDeleteLink={deleteLinkFromContextMenu}
             onTogglePin={togglePinFromContextMenu}
+            onLocateCategory={locateCategoryFromContextMenu}
+            showLocateCategory={(() => {
+              if (!contextMenu.link) return false;
+              // 只有链接属于子目录时才显示“定位目录”
+              return categories.some(cat => 
+                cat.subCategories?.some(sub => sub.id === contextMenu.link!.categoryId)
+              );
+            })()}
           />
 
           {/* 二维码模态框 */}
