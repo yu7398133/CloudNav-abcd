@@ -1,79 +1,29 @@
 import { AIConfig } from "../types";
 
 /**
- * Helper to call Gemini REST API directly (no SDK dependency)
+ * Call AI via backend proxy (avoids CORS issues)
  */
-const callGeminiAPI = async (apiKey: string, model: string, prompt: string): Promise<string> => {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-    
-    const response = await fetch(url, {
+const callAI = async (config: AIConfig, systemPrompt: string, userPrompt: string): Promise<string> => {
+    const resp = await fetch('/api/ai', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
+            provider: config.provider,
+            apiKey: config.apiKey,
+            baseUrl: config.baseUrl,
+            model: config.model || (config.provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-3.5-turbo'),
+            systemPrompt,
+            userPrompt
         })
     });
 
-    if (!response.ok) {
-        const err = await response.text();
-        console.error("Gemini API Error:", response.status, err);
-        throw new Error(`Gemini API ${response.status}: ${err.substring(0, 200)}`);
+    const data = await resp.json() as { result?: string; error?: string };
+
+    if (!resp.ok || data.error) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
     }
 
-    const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-};
-
-/**
- * Helper to call OpenAI Compatible API
- */
-const callOpenAICompatible = async (config: AIConfig, systemPrompt: string, userPrompt: string): Promise<string> => {
-    let baseUrl = config.baseUrl.replace(/\/$/, '');
-    if (!baseUrl.includes('/chat/completions')) {
-        if (baseUrl.endsWith('/v1')) {
-            baseUrl += '/chat/completions';
-        } else {
-            baseUrl += '/chat/completions';
-        }
-    }
-
-    const response = await fetch(baseUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [
-                { role: "system", content: systemPrompt },
-                { role: "user", content: userPrompt }
-            ],
-            temperature: 0.7
-        })
-    });
-
-    if (!response.ok) {
-        const err = await response.text();
-        console.error("OpenAI API Error:", response.status, err);
-        throw new Error(`API ${response.status}: ${err.substring(0, 200)}`);
-    }
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || "";
-};
-
-/**
- * Unified AI call function
- */
-const callAI = async (config: AIConfig, systemPrompt: string, userPrompt: string): Promise<string> => {
-    if (config.provider === 'gemini') {
-        const model = config.model || 'gemini-2.5-flash';
-        return await callGeminiAPI(config.apiKey, model, `${systemPrompt}\n\n${userPrompt}`);
-    } else {
-        return await callOpenAICompatible(config, systemPrompt, userPrompt);
-    }
+    return data.result || '';
 };
 
 /**
