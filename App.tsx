@@ -2417,7 +2417,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.7.9 (支持二级目录)</span>
+                 <span>Fork 项目 v1.8.0 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -2980,7 +2980,7 @@ function App() {
                                     const subLinks = displayedLinks.filter(l => l.categoryId === subCat.id);
                                     if (subLinks.length === 0) return null;
                                     return (
-                                        <div key={subCat.id} className="border-l-2 border-blue-200 dark:border-blue-800 pl-4">
+                                        <div key={subCat.id} className="">
                                             <div className="flex items-center gap-2 mb-3">
                                                 <Icon name={subCat.icon} size={14} />
                                                 <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
@@ -3034,7 +3034,7 @@ function App() {
                                         const subLinks = displayedLinks.filter(l => l.categoryId === subCat.id);
                                         if (subLinks.length === 0) return null;
                                         return (
-                                            <div key={subCat.id} className="border-l-2 border-blue-200 dark:border-blue-800 pl-4">
+                                            <div key={subCat.id} className="">
                                                 <div className="flex items-center gap-2 mb-3">
                                                     <Icon name={subCat.icon} size={14} />
                                                     <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
