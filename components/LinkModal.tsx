@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Sparkles, Loader2, Pin, Wand2, Trash2 } from 'lucide-react';
 import { LinkItem, Category, AIConfig } from '../types';
-import { generateLinkDescription, suggestCategory } from '../services/geminiService';
+import { generateLinkDescription } from '../services/geminiService';
 
 interface LinkModalProps {
   isOpen: boolean;
@@ -170,16 +170,9 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
 
     setIsGenerating(true);
     
-    // Parallel execution for speed
     try {
-        const descPromise = generateLinkDescription(title, url, aiConfig);
-        const catPromise = suggestCategory(title, url, categories, aiConfig);
-        
-        const [desc, cat] = await Promise.all([descPromise, catPromise]);
-        
+        const desc = await generateLinkDescription(title, url, aiConfig);
         if (desc) setDescription(desc);
-        if (cat) setCategoryId(cat);
-        
     } catch (e) {
         console.error("AI Assist failed", e);
     } finally {
