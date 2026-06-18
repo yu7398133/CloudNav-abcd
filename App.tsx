@@ -2417,7 +2417,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.7.8 (支持二级目录)</span>
+                 <span>Fork 项目 v1.7.9 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -2877,12 +2877,20 @@ function App() {
                                               <div className="absolute top-full right-0 mt-1 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 z-20 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 max-h-80 overflow-y-auto">
                                                   {categories.map(cat => (
                                                       <div key={cat.id}>
-                                                          <button
-                                                              onClick={() => handleBatchMove(cat.id)}
-                                                              className="w-full text-left px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 first:rounded-t-lg"
-                                                          >
-                                                              {cat.name}
-                                                          </button>
+                                                          {cat.subCategories && cat.subCategories.length > 0 ? (
+                                                              // 有子目录时一级目录作为不可点击的分组标题
+                                                              <div className="w-full text-left px-4 py-2 text-sm font-medium text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-700/50">
+                                                                  {cat.name}
+                                                              </div>
+                                                          ) : (
+                                                              // 无子目录时可点击
+                                                              <button
+                                                                  onClick={() => handleBatchMove(cat.id)}
+                                                                  className="w-full text-left px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                                                              >
+                                                                  {cat.name}
+                                                              </button>
+                                                          )}
                                                           {cat.subCategories && cat.subCategories.length > 0 && cat.subCategories
                                                               .filter(sub => sub.id !== selectedSubCategory)
                                                               .map(sub => (

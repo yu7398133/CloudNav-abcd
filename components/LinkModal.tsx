@@ -417,13 +417,16 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
             {/* 渲染所有分类和子目录 */}
             {categories.map(cat => (
               <React.Fragment key={cat.id}>
-                {/* 一级分类 */}
                 <optgroup label={cat.name}>
-                  <option value={cat.id}>─ {cat.name}</option>
-                  {/* 二级子目录 */}
-                  {cat.subCategories && cat.subCategories.length > 0 && cat.subCategories.map(subCat => (
-                    <option key={subCat.id} value={subCat.id}>  └─ {subCat.name}</option>
-                  ))}
+                  {cat.subCategories && cat.subCategories.length > 0 ? (
+                    // 有子目录时只显示子目录，不显示一级目录选项
+                    cat.subCategories.map(subCat => (
+                      <option key={subCat.id} value={subCat.id}>  └─ {subCat.name}</option>
+                    ))
+                  ) : (
+                    // 无子目录时显示一级目录
+                    <option value={cat.id}>─ {cat.name}</option>
+                  )}
                 </optgroup>
               </React.Fragment>
             ))}
