@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { X, Edit2, Trash2, Lock, Check, GripVertical } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -10,6 +11,7 @@ import {
   DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -23,11 +25,36 @@ import { Category, LinkItem } from '../types';
 import Icon from './Icon';
 import CategoryActionAuthModal from './CategoryActionAuthModal';
 
+// --- Droppable Sub-Category Zone (for cross-parent moves) ---
+interface DroppableSubZoneProps {
+  parentId: string;
+  children: React.ReactNode;
+  isHighlighted?: boolean;
+}
+
+const DroppableSubZone: React.FC<DroppableSubZoneProps> = ({ parentId, children, isHighlighted }) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `droppable-${parentId}`,
+    data: { type: 'parent-zone', parentId },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`ml-8 mt-1 space-y-1 border-l-2 pl-3 transition-colors ${
+        isOver
+          ? 'border-blue-400 dark:border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 rounded'
+          : 'border-slate-200 dark:border-slate-600'
+      }`}
+    >
+      {children}
+    </div>
+  );
+};
+
 // --- Sortable Category Item (First Level) ---
 interface SortableCategoryItemProps {
   cat: Category;
-  index: number;
-  categories: Category[];
   editingId: string | null;
   editName: string;
   editIcon: string;
@@ -49,15 +76,15 @@ interface SortableCategoryItemProps {
   onSaveEditSub: (parentId: string) => void;
   onCancelEditSub: () => void;
   onDeleteSub: (parentId: string, subId: string) => void;
-  onSubDragEnd: (parentId: string, event: DragEndEvent) => void;
+  activeSubId: string | null;
 }
 
 const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
-  cat, index, categories, editingId, editName, editIcon, editPassword,
+  cat, editingId, editName, editIcon, editPassword,
   onEditNameChange, onEditIconChange, onEditPasswordChange,
   onStartEdit, onSaveEdit, onCancelEdit, onDeleteClick, onAddSubCategory,
   editingSubId, editSubName, editSubIcon, onEditSubNameChange, onEditSubIconChange,
-  onStartEditSub, onSaveEditSub, onCancelEditSub, onDeleteSub, onSubDragEnd,
+  onStartEditSub, onSaveEditSub, onCancelEditSub, onDeleteSub, activeSubId,
 }) => {
   const {
     attributes,
@@ -76,10 +103,8 @@ const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
   };
 
   const subCategories = cat.subCategories || [];
-  const subSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  // Check if any sub is being dragged from another parent (show zone even if empty)
+  const hasSubs = subCategories.length > 0 || activeSubId !== null;
 
   return (
     <div
@@ -165,35 +190,35 @@ const SortableCategoryItem: React.FC<SortableCategoryItemProps> = ({
         </div>
       </div>
 
-      {/* Sub-categories with drag-and-drop */}
-      {subCategories.length > 0 && (
-        <DndContext
-          sensors={subSensors}
-          collisionDetection={closestCenter}
-          onDragEnd={(event) => onSubDragEnd(cat.id, event)}
-        >
+      {/* Sub-categories droppable zone */}
+      <DroppableSubZone parentId={cat.id}>
+        {subCategories.length > 0 ? (
           <SortableContext items={subCategories.map(s => s.id)} strategy={verticalListSortingStrategy}>
-            <div className="ml-8 mt-1 space-y-1 border-l-2 border-slate-200 dark:border-slate-600 pl-3">
-              {subCategories.map((subCat) => (
-                <SortableSubCategoryItem
-                  key={subCat.id}
-                  subCat={subCat}
-                  parentId={cat.id}
-                  editingSubId={editingSubId}
-                  editSubName={editSubName}
-                  editSubIcon={editSubIcon}
-                  onEditSubNameChange={onEditSubNameChange}
-                  onEditSubIconChange={onEditSubIconChange}
-                  onStartEditSub={onStartEditSub}
-                  onSaveEditSub={onSaveEditSub}
-                  onCancelEditSub={onCancelEditSub}
-                  onDeleteSub={onDeleteSub}
-                />
-              ))}
-            </div>
+            {subCategories.map((subCat) => (
+              <SortableSubCategoryItem
+                key={subCat.id}
+                subCat={subCat}
+                parentId={cat.id}
+                editingSubId={editingSubId}
+                editSubName={editSubName}
+                editSubIcon={editSubIcon}
+                onEditSubNameChange={onEditSubNameChange}
+                onEditSubIconChange={onEditSubIconChange}
+                onStartEditSub={onStartEditSub}
+                onSaveEditSub={onSaveEditSub}
+                onCancelEditSub={onCancelEditSub}
+                onDeleteSub={onDeleteSub}
+              />
+            ))}
           </SortableContext>
-        </DndContext>
-      )}
+        ) : (
+          activeSubId && (
+            <div className="text-xs text-slate-400 dark:text-slate-500 italic py-1 pl-5">
+              拖放到此处移入
+            </div>
+          )
+        )}
+      </DroppableSubZone>
     </div>
   );
 };
@@ -314,7 +339,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     categoryName: string;
   } | null>(null);
 
-  // Drag state for overlay
+  // Drag state
   const [activeId, setActiveId] = useState<string | null>(null);
 
   // DnD sensors
@@ -322,6 +347,32 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
+
+  // Build a lookup: subCategoryId -> parentId
+  const subToParentMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const cat of categories) {
+      if (cat.subCategories) {
+        for (const sub of cat.subCategories) {
+          map.set(sub.id, cat.id);
+        }
+      }
+    }
+    return map;
+  }, [categories]);
+
+  // All sub-category IDs (for global SortableContext)
+  const allSubIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const cat of categories) {
+      if (cat.subCategories) {
+        for (const sub of cat.subCategories) {
+          ids.push(sub.id);
+        }
+      }
+    }
+    return ids;
+  }, [categories]);
 
   if (!isOpen) return null;
 
@@ -331,36 +382,93 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    setActiveId(null);
     const { active, over } = event;
-    if (!over || active.id === over.id) return;
+    setActiveId(null);
+    if (!over) return;
 
-    const oldIndex = categories.findIndex(c => c.id === active.id);
-    const newIndex = categories.findIndex(c => c.id === over.id);
+    const activeIdStr = active.id as string;
+    const overIdStr = over.id as string;
+
+    // Check if this is a sub-category drag
+    const isSubDrag = subToParentMap.has(activeIdStr);
+
+    if (isSubDrag) {
+      handleSubCategoryDragEnd(activeIdStr, overIdStr);
+      return;
+    }
+
+    // First-level category reorder
+    if (activeIdStr === overIdStr) return;
+    const oldIndex = categories.findIndex(c => c.id === activeIdStr);
+    const newIndex = categories.findIndex(c => c.id === overIdStr);
     if (oldIndex === -1 || newIndex === -1) return;
 
     const newCats = arrayMove(categories, oldIndex, newIndex);
     onUpdateCategories(newCats);
   };
 
-  // --- Drag handler for sub-categories ---
-  const handleSubDragEnd = (parentId: string, event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  // --- Handle sub-category drag (within parent OR across parents) ---
+  const handleSubCategoryDragEnd = (activeSubId: string, overId: string) => {
+    const sourceParentId = subToParentMap.get(activeSubId);
+    if (!sourceParentId) return;
 
-    const parentCat = categories.find(c => c.id === parentId);
-    if (!parentCat || !parentCat.subCategories) return;
+    let targetParentId: string | null = null;
+    let targetIndex = -1;
 
-    const subs = parentCat.subCategories;
-    const oldIndex = subs.findIndex(s => s.id === active.id);
-    const newIndex = subs.findIndex(s => s.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
+    // Determine target: dropped on another sub-category, or on a parent droppable zone
+    const overAsSubParent = subToParentMap.get(overId);
+    if (overAsSubParent) {
+      // Dropped on another sub-category → same parent sort or cross-parent
+      targetParentId = overAsSubParent;
+      const targetSubs = categories.find(c => c.id === targetParentId)?.subCategories || [];
+      targetIndex = targetSubs.findIndex(s => s.id === overId);
+    } else if (overId.startsWith('droppable-')) {
+      // Dropped on a parent droppable zone
+      targetParentId = overId.replace('droppable-', '');
+      const targetSubs = categories.find(c => c.id === targetParentId)?.subCategories || [];
+      targetIndex = targetSubs.length; // append at end
+    } else {
+      // Dropped on a first-level category item itself
+      targetParentId = overId;
+      const targetSubs = categories.find(c => c.id === targetParentId)?.subCategories || [];
+      targetIndex = targetSubs.length;
+    }
 
-    const newSubs = arrayMove(subs, oldIndex, newIndex);
-    const updated = categories.map(c =>
-      c.id === parentId ? { ...c, subCategories: newSubs } : c
-    );
-    onUpdateCategories(updated);
+    if (!targetParentId) return;
+
+    const sourceParent = categories.find(c => c.id === sourceParentId);
+    if (!sourceParent || !sourceParent.subCategories) return;
+
+    const draggedSub = sourceParent.subCategories.find(s => s.id === activeSubId);
+    if (!draggedSub) return;
+
+    if (sourceParentId === targetParentId) {
+      // Same parent → reorder
+      const subs = sourceParent.subCategories;
+      const oldIndex = subs.findIndex(s => s.id === activeSubId);
+      if (oldIndex === targetIndex) return;
+      const newSubs = arrayMove(subs, oldIndex, targetIndex);
+      const updated = categories.map(c =>
+        c.id === sourceParentId ? { ...c, subCategories: newSubs } : c
+      );
+      onUpdateCategories(updated);
+    } else {
+      // Cross-parent move
+      const updated = categories.map(c => {
+        if (c.id === sourceParentId && c.subCategories) {
+          return { ...c, subCategories: c.subCategories.filter(s => s.id !== activeSubId) };
+        }
+        if (c.id === targetParentId) {
+          const existingSubs = c.subCategories || [];
+          const newSubs = [...existingSubs];
+          const insertAt = Math.min(targetIndex, newSubs.length);
+          newSubs.splice(insertAt, 0, draggedSub);
+          return { ...c, subCategories: newSubs };
+        }
+        return c;
+      });
+      onUpdateCategories(updated);
+    }
   };
 
   // --- Edit handlers ---
@@ -487,17 +595,15 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           <DndContext
             sensors={sensors}
-            collisionDetection={closestCenter}
+            collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={categories.map(c => c.id)} strategy={verticalListSortingStrategy}>
-              {categories.map((cat, index) => (
+              {categories.map((cat) => (
                 <SortableCategoryItem
                   key={cat.id}
                   cat={cat}
-                  index={index}
-                  categories={categories}
                   editingId={editingId}
                   editName={editName}
                   editIcon={editIcon}
@@ -519,7 +625,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
                   onSaveEditSub={saveEditSub}
                   onCancelEditSub={cancelEditSub}
                   onDeleteSub={handleDeleteSub}
-                  onSubDragEnd={handleSubDragEnd}
+                  activeSubId={activeId}
                 />
               ))}
             </SortableContext>
