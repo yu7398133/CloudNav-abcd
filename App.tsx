@@ -226,6 +226,9 @@ function App() {
           return link;
         });
         
+        // 清理无效链接（标题或URL为空）
+        loadedLinks = loadedLinks.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
+        
         // 确保每个分类有同名子分类
         const migrated = ensureSameNameSubCategories(loadedCategories, loadedLinks);
         setLinks(migrated.links);
@@ -592,13 +595,18 @@ function App() {
                 if (data.links && data.links.length > 0) {
                     // 确保每个分类有同名子分类
                     const migrated = ensureSameNameSubCategories(data.categories || DEFAULT_CATEGORIES, data.links);
-                    setLinks(migrated.links);
-                    setCategories(migrated.categories);
-                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: migrated.links, categories: migrated.categories }));
                     
-                    // 如果有迁移，同步到云端
-                    if (migrated.links !== data.links || migrated.categories !== (data.categories || DEFAULT_CATEGORIES)) {
-                        if (authToken) syncToCloud(migrated.links, migrated.categories, authToken);
+                    // 清理无效链接（标题或URL为空）
+                    const cleanedLinks = migrated.links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
+                    const linksWereCleaned = cleanedLinks.length !== migrated.links.length;
+                    
+                    setLinks(cleanedLinks);
+                    setCategories(migrated.categories);
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: cleanedLinks, categories: migrated.categories }));
+                    
+                    // 如果有迁移或清理，同步到云端
+                    if (linksWereCleaned || migrated.links !== data.links || migrated.categories !== (data.categories || DEFAULT_CATEGORIES)) {
+                        if (authToken) syncToCloud(cleanedLinks, migrated.categories, authToken);
                     }
                     
                     loadLinkIcons(migrated.links);
@@ -1910,7 +1918,8 @@ function App() {
   }, [links, categories, unlockedCategoryIds]);
 
   const displayedLinks = useMemo(() => {
-    let result = links;
+    // 过滤掉无效链接（标题或URL为空）
+    let result = links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
     
     // Security Filter: Always hide links from locked categories
     result = result.filter(l => !isCategoryLocked(l.categoryId));
