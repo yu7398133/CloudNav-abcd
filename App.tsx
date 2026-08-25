@@ -2190,7 +2190,7 @@ function App() {
     <div className="flex h-screen overflow-hidden text-slate-900 dark:text-slate-50">
       {/* 主要内容 - 始终显示，认证仅在操作时要求 */}
       <>
-          <AuthModal isOpen={isAuthOpen} onLogin={handleLogin} />
+          <AuthModal isOpen={isAuthOpen} onLogin={handleLogin} onClose={() => setIsAuthOpen(false)} />
       
       <CategoryAuthModal 
         isOpen={!!catAuthModalData}
