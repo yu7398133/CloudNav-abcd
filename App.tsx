@@ -2188,29 +2188,8 @@ function App() {
 
   return (
     <div className="flex h-screen overflow-hidden text-slate-900 dark:text-slate-50">
-      {/* 认证遮罩层 - 当需要认证时显示 */}
-      {requiresAuth && !authToken && (
-        <div className="fixed inset-0 z-50 bg-white dark:bg-slate-900 flex items-center justify-center">
-          <div className="w-full max-w-md p-6">
-            <div className="text-center mb-8">
-              <div className="mx-auto w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mb-4">
-                <Lock className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-50 mb-2">
-                需要身份验证
-              </h1>
-              <p className="text-slate-600 dark:text-slate-400">
-                此导航页面设置了访问密码，请输入密码以继续访问
-              </p>
-            </div>
-            <AuthModal isOpen={true} onLogin={handleLogin} />
-          </div>
-        </div>
-      )}
-      
-      {/* 主要内容 - 只有在不需要认证或已认证时显示 */}
-      {(!requiresAuth || authToken) && (
-        <>
+      {/* 主要内容 - 始终显示，认证仅在操作时要求 */}
+      <>
           <AuthModal isOpen={isAuthOpen} onLogin={handleLogin} />
       
       <CategoryAuthModal 
@@ -3232,7 +3211,6 @@ function App() {
             onClose={() => setQrCodeModal({ isOpen: false, url: '', title: '' })}
           />
         </>
-      )}
     </div>
   );
 }
