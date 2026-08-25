@@ -570,19 +570,12 @@ function App() {
 
     // Initial Data Fetch
     const initData = async () => {
-        // 首先检查是否需要认证
+        // 检查服务器是否设置了密码（仅记录状态，不阻塞访问）
         try {
             const authRes = await fetch('/api/storage?checkAuth=true');
             if (authRes.ok) {
                 const authData = await authRes.json();
                 setRequiresAuth(authData.requiresAuth);
-                
-                // 如果需要认证但用户未登录，则不获取数据
-                if (authData.requiresAuth && !savedToken) {
-                    setIsCheckingAuth(false);
-                    setIsAuthOpen(true);
-                    return;
-                }
             }
         } catch (e) {
             console.warn("Failed to check auth requirement.", e);
