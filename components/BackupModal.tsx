@@ -40,10 +40,15 @@ const BackupModal: React.FC<BackupModalProps> = ({
     setIsTesting(true);
     setTestResult(null);
     setTestErrorMsg('');
-    const result = await checkWebDavConnection(config);
-    setTestResult(result.success ? 'success' : 'fail');
-    if (!result.success && result.error) {
-      setTestErrorMsg(result.error);
+    try {
+      const result = await checkWebDavConnection(config);
+      setTestResult(result.success ? 'success' : 'fail');
+      if (!result.success && result.error) {
+        setTestErrorMsg(result.error);
+      }
+    } catch (e: any) {
+      setTestResult('fail');
+      setTestErrorMsg(`连接测试失败: ${e.message || '网络错误'}。如果使用坚果云，可能是 Cloudflare IP 被屏蔽，建议使用其他 WebDAV 服务。`);
     }
     setIsTesting(false);
   };
@@ -205,7 +210,11 @@ const BackupModal: React.FC<BackupModalProps> = ({
                             <Save size={12} /> 保存配置
                         </button>
                         {testResult === 'success' && <span className="text-xs text-green-500 flex items-center gap-1"><CheckCircle2 size={12}/> 连接成功</span>}
-                        {testResult === 'fail' && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12}/> {testErrorMsg || '连接失败'}</span>}
+                        {testResult === 'fail' && 
+                        <div className="text-xs text-red-500 flex items-start gap-1 max-w-md">
+                          <AlertCircle size={12} className="mt-0.5 shrink-0"/> 
+                          <span>{testErrorMsg || '连接失败'}</span>
+                        </div>}
                     </div>
                 </div>
             </section>

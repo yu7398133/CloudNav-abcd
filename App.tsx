@@ -2429,7 +2429,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.9.2 (支持二级目录)</span>
+                 <span>Fork 项目 v1.9.3 (支持二级目录)</span>
                </a>
             </div>
         </div>

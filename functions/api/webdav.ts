@@ -62,11 +62,22 @@ export const onRequestPost = async (context: { request: Request }) => {
         return new Response(JSON.stringify({ error: 'Invalid operation' }), { status: 400 });
     }
 
-    const response = await fetch(fetchUrl, {
-        method,
-        headers,
-        body: requestBody
-    });
+    let response: Response;
+    try {
+        response = await fetch(fetchUrl, {
+            method,
+            headers,
+            body: requestBody,
+            // @ts-ignore - CF Workers specific options
+            redirect: 'follow',
+        });
+    } catch (fetchErr: any) {
+        return new Response(JSON.stringify({ 
+            success: false, 
+            error: `WebDAV 网络请求失败: ${fetchErr.message}。如果使用坚果云，可能是 Cloudflare IP 被屏蔽，建议使用其他 WebDAV 服务（如 InfiniCLOUD、Yandex Disk）。`,
+            hint: 'jianguoyun_blocked'
+        }), { status: 520, headers: { 'Content-Type': 'application/json' } });
+    }
 
     if (operation === 'download') {
         if (!response.ok) {
@@ -95,16 +106,20 @@ export const onRequestPost = async (context: { request: Request }) => {
     
     if (!success) {
         let errorMsg = 'WebDAV 操作失败';
+        let hint = '';
         if (response.status === 401) {
             errorMsg = '认证失败，请检查用户名和应用密码';
         } else if (response.status === 403) {
             errorMsg = '权限不足，请检查 WebDAV 权限设置';
         } else if (response.status === 404) {
             errorMsg = '路径不存在，请检查 WebDAV 服务器地址';
+        } else if (response.status === 520 || response.status === 521 || response.status === 522 || response.status === 523) {
+            errorMsg = '无法连接到 WebDAV 服务器。如果使用坚果云(jianguoyun)，可能是 Cloudflare IP 被屏蔽。建议：1) 使用其他 WebDAV 服务（如 Yandex Disk、InfiniCLOUD）；2) 使用自带 WebDAV 服务器。';
+            hint = 'jianguoyun_likely_blocked';
         } else {
             errorMsg = `WebDAV 错误: ${response.status} ${response.statusText}`;
         }
-        return new Response(JSON.stringify({ success: false, status: response.status, error: errorMsg }), { 
+        return new Response(JSON.stringify({ success: false, status: response.status, error: errorMsg, hint }), { 
             headers: { 'Content-Type': 'application/json' } 
         });
     }
