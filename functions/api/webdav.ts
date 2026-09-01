@@ -35,11 +35,15 @@ export const onRequestPost = async (context: { request: Request }) => {
 
     const authHeader = `Basic ${btoa(`${config.username}:${config.password}`)}`;
     
+    // Use Zotero User-Agent for cstcloud (data.cstcloud.cn only allows Zotero clients)
+    const isCstCloud = baseUrl.includes('cstcloud.cn');
+    const userAgent = isCstCloud ? 'Zotero/7.0' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 CloudNav/2.0';
+    
     let fetchUrl = fileUrl;
     let method = 'GET';
     let headers: Record<string, string> = {
         'Authorization': authHeader,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 CloudNav/2.0',
+        'User-Agent': userAgent,
         'Accept': '*/*',
     };
     let requestBody: string | undefined = undefined;
