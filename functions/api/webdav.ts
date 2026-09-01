@@ -1,4 +1,21 @@
 
+// Encode URL path segments while preserving the scheme, host, and existing encoding
+function encodeWebDavUrl(url: string): string {
+    try {
+        const u = new URL(url);
+        // Split path by /, encode each segment, rejoin
+        u.pathname = u.pathname.split('/').map(segment => {
+            if (!segment) return segment;
+            // Already percent-encoded? Keep as-is
+            if (/^%[0-9A-Fa-f]{2}/.test(segment)) return segment;
+            return encodeURIComponent(segment);
+        }).join('/');
+        return u.toString();
+    } catch {
+        return url;
+    }
+}
+
 export const onRequestPost = async (context: { request: Request }) => {
   const { request } = context;
   
@@ -14,12 +31,12 @@ export const onRequestPost = async (context: { request: Request }) => {
     if (!baseUrl.endsWith('/')) baseUrl += '/';
     
     const finalFilename = filename || 'cloudnav_backup.json';
-    const fileUrl = baseUrl + finalFilename;
+    const fileUrl = encodeWebDavUrl(baseUrl + finalFilename);
 
     const authHeader = `Basic ${btoa(`${config.username}:${config.password}`)}`;
     
-    let fetchUrl = baseUrl;
-    let method = 'HEAD';
+    let fetchUrl = encodeWebDavUrl(baseUrl);
+    let method = 'GET';
     let headers: Record<string, string> = {
         'Authorization': authHeader,
         'User-Agent': 'CloudNav/1.0'
