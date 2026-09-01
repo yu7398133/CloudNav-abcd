@@ -27,9 +27,12 @@ export const onRequestPost = async (context: { request: Request }) => {
     let requestBody: string | undefined = undefined;
 
     if (operation === 'check') {
-        // Use HEAD instead of PROPFIND — Cloudflare Workers fetch does not support PROPFIND
-        fetchUrl = baseUrl;
-        method = 'HEAD';
+        // Try GET on the backup file to verify connection
+        // 200 = file exists, connection good
+        // 404 = path reachable, no backup yet, still OK
+        // 401/403 = auth failed
+        fetchUrl = fileUrl;
+        method = 'GET';
     } else if (operation === 'upload') {
         fetchUrl = fileUrl;
         method = 'PUT';
@@ -61,8 +64,16 @@ export const onRequestPost = async (context: { request: Request }) => {
         });
     }
 
-    // For check: 2xx means auth worked and path is accessible
-    // For upload: 2xx / 201 / 204 means success
+    // For check: treat 200 (file exists) and 404 (no backup yet) as success
+    // Only auth errors (401/403) or server errors are real failures
+    if (operation === 'check') {
+        if (response.ok || response.status === 404) {
+            return new Response(JSON.stringify({ success: true, status: response.status }), { 
+                headers: { 'Content-Type': 'application/json' } 
+            });
+        }
+    }
+
     const success = response.ok;
     
     if (!success) {
