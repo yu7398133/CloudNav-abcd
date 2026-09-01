@@ -80,7 +80,11 @@ const directWebDavRequest = async (operation: 'check' | 'upload' | 'download', c
         }
         return { success: false, error: `WebDAV 错误: ${response.status}`, status: response.status };
     } catch (e: any) {
-        return { success: false, error: `前端直连失败: ${e.message}` };
+        const msg = e.message || '';
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('CORS')) {
+            return { success: false, error: `前端直连失败: WebDAV服务器不支持跨域访问(CORS)。坚果云已知不支持CORS。建议：1) 使用支持CORS的WebDAV服务（如InfiniCLOUD、Nextcloud）；2) 自建WebDAV服务器并配置CORS头。` };
+        }
+        return { success: false, error: `前端直连失败: ${msg}` };
     }
 };
 
