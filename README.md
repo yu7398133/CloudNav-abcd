@@ -3,12 +3,12 @@
 
 ---
 #### 最新版本v1.9.4 (2026.9.1)
-- 1、WebDAV双模式架构：后端代理优先，失败时自动回退前端直连
-- 2、解决坚果云WebDAV因Cloudflare Workers IP被屏蔽导致520错误的问题
-- 3、前端直连模式使用PROPFIND方法验证连接，更符合WebDAV标准
-- 4、WebDAV连接检查支持207(Multi-Status)响应码
-- 5、页面左下角版本号更新至v1.9.4
-- ⚠️ 前端直连依赖WebDAV服务器的CORS策略，如仍失败请考虑使用其他WebDAV服务（如InfiniCLOUD、Yandex Disk）
+- 1、支持中国科技云数据胶囊(cstcloud) WebDAV同步
+- 2、数据胶囊WebDAV仅允许Zotero客户端访问，自动检测cstcloud.cn域名并使用Zotero/7.0 User-Agent
+- 3、改进WebDAV错误处理：520错误时提示坚果云IP被屏蔽，403 Client type mismatch时提示可能需要特定客户端
+- 4、页面左下角版本号更新至v1.9.4
+- ✅ 已验证可用WebDAV服务：数据胶囊(data.cstcloud.cn)、Yandex Disk、坚果云(直连)
+- ⚠️ 坚果云WebDAV因屏蔽Cloudflare IP无法通过Workers代理访问
 
 #### 版本v1.9.3 (2026.9.1)
 - 1、诊断并修复WebDAV同步问题：发现坚果云(jianguoyun)屏蔽Cloudflare Workers IP段，导致所有WebDAV请求返回520错误
