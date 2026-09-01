@@ -35,11 +35,12 @@ export const onRequestPost = async (context: { request: Request }) => {
 
     const authHeader = `Basic ${btoa(`${config.username}:${config.password}`)}`;
     
-    let fetchUrl = encodeWebDavUrl(baseUrl);
+    let fetchUrl = fileUrl;
     let method = 'GET';
     let headers: Record<string, string> = {
         'Authorization': authHeader,
-        'User-Agent': 'CloudNav/1.0'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 CloudNav/2.0',
+        'Accept': '*/*',
     };
     let requestBody: string | undefined = undefined;
 
@@ -64,13 +65,16 @@ export const onRequestPost = async (context: { request: Request }) => {
 
     let response: Response;
     try {
-        response = await fetch(fetchUrl, {
+        const fetchOptions: RequestInit = {
             method,
             headers,
-            body: requestBody,
-            // @ts-ignore - CF Workers specific options
             redirect: 'follow',
-        });
+        };
+        // Only include body for methods that support it
+        if (requestBody && method !== 'GET' && method !== 'HEAD') {
+            fetchOptions.body = requestBody;
+        }
+        response = await fetch(fetchUrl, fetchOptions);
     } catch (fetchErr: any) {
         return new Response(JSON.stringify({ 
             success: false, 

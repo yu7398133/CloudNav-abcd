@@ -2,7 +2,15 @@
 **本项目基于在大佬 https://github.com/sese972010/CloudNav- 的项目上,根据我的个性化需求做了一些修改,设置密码后需要输密访问,适合个人使用!**
 
 ---
-#### 最新版本v1.9.3 (2026.9.1)
+#### 最新版本v1.9.4 (2026.9.1)
+- 1、WebDAV双模式架构：后端代理优先，失败时自动回退前端直连
+- 2、解决坚果云WebDAV因Cloudflare Workers IP被屏蔽导致520错误的问题
+- 3、前端直连模式使用PROPFIND方法验证连接，更符合WebDAV标准
+- 4、WebDAV连接检查支持207(Multi-Status)响应码
+- 5、页面左下角版本号更新至v1.9.4
+- ⚠️ 前端直连依赖WebDAV服务器的CORS策略，如仍失败请考虑使用其他WebDAV服务（如InfiniCLOUD、Yandex Disk）
+
+#### 版本v1.9.3 (2026.9.1)
 - 1、诊断并修复WebDAV同步问题：发现坚果云(jianguoyun)屏蔽Cloudflare Workers IP段，导致所有WebDAV请求返回520错误
 - 2、改进WebDAV错误处理：增加fetch异常捕获，520/521/522/523错误时提示可能是坚果云IP被屏蔽
 - 3、前端测试连接增加try-catch，网络异常时显示友好提示
