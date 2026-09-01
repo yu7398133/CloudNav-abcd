@@ -19,17 +19,17 @@ export const onRequestPost = async (context: { request: Request }) => {
     const authHeader = `Basic ${btoa(`${config.username}:${config.password}`)}`;
     
     let fetchUrl = baseUrl;
-    let method = 'PROPFIND';
+    let method = 'HEAD';
     let headers: Record<string, string> = {
         'Authorization': authHeader,
         'User-Agent': 'CloudNav/1.0'
     };
-    let requestBody = undefined;
+    let requestBody: string | undefined = undefined;
 
     if (operation === 'check') {
+        // Use HEAD instead of PROPFIND — Cloudflare Workers fetch does not support PROPFIND
         fetchUrl = baseUrl;
-        method = 'PROPFIND';
-        headers['Depth'] = '0';
+        method = 'HEAD';
     } else if (operation === 'upload') {
         fetchUrl = fileUrl;
         method = 'PUT';
@@ -51,9 +51,9 @@ export const onRequestPost = async (context: { request: Request }) => {
     if (operation === 'download') {
         if (!response.ok) {
              if (response.status === 404) {
-                 return new Response(JSON.stringify({ error: 'Backup file not found' }), { status: 404 });
+                 return new Response(JSON.stringify({ error: '备份文件不存在，请先上传备份' }), { status: 404 });
              }
-             return new Response(JSON.stringify({ error: `WebDAV Error: ${response.status}` }), { status: response.status });
+             return new Response(JSON.stringify({ error: `WebDAV 错误: ${response.status} ${response.statusText}` }), { status: response.status });
         }
         const data = await response.json();
         return new Response(JSON.stringify(data), { 
@@ -61,13 +61,31 @@ export const onRequestPost = async (context: { request: Request }) => {
         });
     }
 
-    const success = response.ok || response.status === 207;
+    // For check: 2xx means auth worked and path is accessible
+    // For upload: 2xx / 201 / 204 means success
+    const success = response.ok;
     
-    return new Response(JSON.stringify({ success, status: response.status }), { 
+    if (!success) {
+        let errorMsg = 'WebDAV 操作失败';
+        if (response.status === 401) {
+            errorMsg = '认证失败，请检查用户名和应用密码';
+        } else if (response.status === 403) {
+            errorMsg = '权限不足，请检查 WebDAV 权限设置';
+        } else if (response.status === 404) {
+            errorMsg = '路径不存在，请检查 WebDAV 服务器地址';
+        } else {
+            errorMsg = `WebDAV 错误: ${response.status} ${response.statusText}`;
+        }
+        return new Response(JSON.stringify({ success: false, status: response.status, error: errorMsg }), { 
+            headers: { 'Content-Type': 'application/json' } 
+        });
+    }
+    
+    return new Response(JSON.stringify({ success: true, status: response.status }), { 
         headers: { 'Content-Type': 'application/json' } 
     });
 
   } catch (err: any) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: `WebDAV 请求异常: ${err.message}` }), { status: 500 });
   }
 };

@@ -24,6 +24,7 @@ const BackupModal: React.FC<BackupModalProps> = ({
   const [config, setConfig] = useState<WebDavConfig>(webDavConfig);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<'success' | 'fail' | null>(null);
+  const [testErrorMsg, setTestErrorMsg] = useState('');
   const [syncStatus, setSyncStatus] = useState<'idle' | 'uploading' | 'downloading' | 'success' | 'error'>('idle');
   const [statusMsg, setStatusMsg] = useState('');
 
@@ -38,8 +39,12 @@ const BackupModal: React.FC<BackupModalProps> = ({
   const handleTestConnection = async () => {
     setIsTesting(true);
     setTestResult(null);
-    const success = await checkWebDavConnection(config);
-    setTestResult(success ? 'success' : 'fail');
+    setTestErrorMsg('');
+    const result = await checkWebDavConnection(config);
+    setTestResult(result.success ? 'success' : 'fail');
+    if (!result.success && result.error) {
+      setTestErrorMsg(result.error);
+    }
     setIsTesting(false);
   };
 
@@ -54,13 +59,13 @@ const BackupModal: React.FC<BackupModalProps> = ({
   const handleBackupToCloud = async () => {
     setSyncStatus('uploading');
     setStatusMsg('正在上传...');
-    const success = await uploadBackup(config, { links, categories, searchConfig, aiConfig });
-    if (success) {
+    const result = await uploadBackup(config, { links, categories, searchConfig, aiConfig });
+    if (result.success) {
         setSyncStatus('success');
         setStatusMsg('备份成功！');
     } else {
         setSyncStatus('error');
-        setStatusMsg('上传失败，请检查配置或网络。');
+        setStatusMsg(result.error || '上传失败，请检查配置或网络。');
     }
   };
 
@@ -73,7 +78,7 @@ const BackupModal: React.FC<BackupModalProps> = ({
         setStatusMsg(`备份成功！文件名: ${result.filename}`);
     } else {
         setSyncStatus('error');
-        setStatusMsg('上传失败，请检查配置或网络。');
+        setStatusMsg(result.error || '上传失败，请检查配置或网络。');
     }
   };
 
@@ -200,7 +205,7 @@ const BackupModal: React.FC<BackupModalProps> = ({
                             <Save size={12} /> 保存配置
                         </button>
                         {testResult === 'success' && <span className="text-xs text-green-500 flex items-center gap-1"><CheckCircle2 size={12}/> 连接成功</span>}
-                        {testResult === 'fail' && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12}/> 连接失败</span>}
+                        {testResult === 'fail' && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={12}/> {testErrorMsg || '连接失败'}</span>}
                     </div>
                 </div>
             </section>
