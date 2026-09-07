@@ -362,7 +362,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
                     <button 
                         onClick={executeImport} 
                         disabled={importMode !== 'overwrite' && newLinksCount === 0}
-                        className={`px-4 py-2 text-sm ${importMode === 'overwrite' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium`
+                        className={`px-4 py-2 text-sm ${importMode === 'overwrite' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium`}
                     >
                         <Check size={16} /> {importMode === 'overwrite' ? `覆盖导入 (${parsedLinks.length})` : `确认导入 (${newLinksCount})`}
                     </button>
