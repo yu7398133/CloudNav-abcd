@@ -229,8 +229,14 @@ function App() {
         // 清理无效链接（标题或URL为空）
         loadedLinks = loadedLinks.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
         
-        setLinks(loadedLinks);
-        setCategories(loadedCategories);
+        // 迁移：将直接属于一级分类的链接归入第一个子目录
+        const { links: migratedLinks, categories: migratedCats } = migrateLinksToSubCategories(loadedCategories, loadedLinks);
+        setLinks(migratedLinks);
+        setCategories(migratedCats);
+        if (migratedLinks !== loadedLinks || migratedCats !== loadedCategories) {
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: migratedLinks, categories: migratedCats }));
+            if (authToken) syncToCloud(migratedLinks, migratedCats, authToken);
+        }
       } catch (e) {
         setLinks(INITIAL_LINKS);
         setCategories(DEFAULT_CATEGORIES);
@@ -586,17 +592,18 @@ function App() {
             if (res.ok) {
                 const data = await res.json();
                 if (data.links && data.links.length > 0) {
-                    // 清理无效链接（标题或URL为空）
-                    const cleanedLinks = data.links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
-                    const linksWereCleaned = cleanedLinks.length !== data.links.length;
+                    // 迁移链接到子目录
+                    const { links: migratedLinks, categories: migratedCats } = migrateLinksToSubCategories(data.categories || DEFAULT_CATEGORIES, data.links);
+                    // 清理无效链接
+                    const cleanedLinks = migratedLinks.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
+                    const linksWereCleaned = cleanedLinks.length !== migratedLinks.length;
                     
                     setLinks(cleanedLinks);
-                    setCategories(data.categories || DEFAULT_CATEGORIES);
-                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: cleanedLinks, categories: data.categories || DEFAULT_CATEGORIES }));
+                    setCategories(migratedCats);
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: cleanedLinks, categories: migratedCats }));
                     
-                    // 如果有清理，同步到云端
-                    if (linksWereCleaned) {
-                        if (authToken) syncToCloud(cleanedLinks, data.categories || DEFAULT_CATEGORIES, authToken);
+                    if (linksWereCleaned || migratedLinks !== data.links || migratedCats !== data.categories) {
+                        if (authToken) syncToCloud(cleanedLinks, migratedCats, authToken);
                     }
                     
                     loadLinkIcons(cleanedLinks);
@@ -1494,6 +1501,21 @@ function App() {
   const handleUnlockCategory = (catId: string) => {
       setUnlockedCategoryIds(prev => new Set(prev).add(catId));
       setSelectedCategory(catId);
+  };
+
+  // 迁移：将直接属于一级分类的链接归入第一个子目录（不创建新子目录）
+  const migrateLinksToSubCategories = (cats: Category[], lnks: LinkItem[]): { links: LinkItem[], categories: Category[] } => {
+    let changed = false;
+    const newLinks = lnks.map(link => {
+      const cat = cats.find(c => c.id === link.categoryId);
+      if (cat && cat.subCategories && cat.subCategories.length > 0) {
+        // 链接属于一级分类，迁移到第一个子目录
+        changed = true;
+        return { ...link, categoryId: cat.subCategories[0].id };
+      }
+      return link;
+    });
+    return { links: changed ? newLinks : lnks, categories: cats };
   };
 
   const handleUpdateCategories = (newCats: Category[]) => {
@@ -2440,7 +2462,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v2.0.1 (支持二级目录)</span>
+                 <span>Fork 项目 v2.0.2 (支持二级目录)</span>
                </a>
             </div>
         </div>
