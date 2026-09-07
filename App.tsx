@@ -1099,7 +1099,15 @@ function App() {
     });
   };
 
-  const handleImportConfirm = (newLinks: LinkItem[], newCategories: Category[]) => {
+  const handleImportConfirm = (newLinks: LinkItem[], newCategories: Category[], overwrite?: boolean) => {
+      if (overwrite) {
+          // 覆盖模式：完全替换现有数据
+          updateData(newLinks, newCategories);
+          setIsImportModalOpen(false);
+          alert(`覆盖导入成功！已替换为 ${newLinks.length} 个书签和 ${newCategories.length} 个分类。`);
+          return;
+      }
+      
       // Merge categories: Avoid duplicate names/IDs
       const mergedCategories = [...categories];
       
@@ -1546,7 +1554,29 @@ function App() {
 
   const handleUpdateCategories = (newCats: Category[]) => {
       if (!authToken) { setIsAuthOpen(true); return; }
-      updateData(links, newCats);
+      
+      // 清理孤立链接：删除子目录后，将其下的链接移至父目录
+      const allCatIds = new Set(newCats.map(c => c.id));
+      const subIdToParentId = new Map<string, string>();
+      newCats.forEach(cat => {
+          if (cat.subCategories) {
+              cat.subCategories.forEach(sub => {
+                  subIdToParentId.set(sub.id, cat.id);
+                  allCatIds.add(sub.id);
+              });
+          }
+      });
+      
+      const cleanedLinks = links.map(link => {
+          if (!allCatIds.has(link.categoryId)) {
+              // 找不到对应分类，尝试移至父目录
+              const parentId = subIdToParentId.get(link.categoryId);
+              return { ...link, categoryId: parentId || 'common' };
+          }
+          return link;
+      });
+      
+      updateData(cleanedLinks, newCats);
   };
 
   const handleDeleteCategory = (catId: string) => {
@@ -1560,6 +1590,11 @@ function App() {
       
       let newCats = categories.filter(c => c.id !== catId);
       
+      // 同时删除该分类下的所有子目录
+      const deletedSubIds = new Set(
+          (categories.find(c => c.id === catId)?.subCategories || []).map(s => s.id)
+      );
+      
       // 检查是否存在"常用推荐"分类，如果不存在则创建它
       if (!newCats.some(c => c.id === 'common')) {
           newCats = [
@@ -1568,9 +1603,13 @@ function App() {
           ];
       }
       
-      // Move links to common or first available
-      const targetId = 'common'; 
-      const newLinks = links.map(l => l.categoryId === catId ? { ...l, categoryId: targetId } : l);
+      // Move links to common (including links in sub-categories)
+      const newLinks = links.map(l => {
+          if (l.categoryId === catId || deletedSubIds.has(l.categoryId)) {
+              return { ...l, categoryId: 'common' };
+          }
+          return l;
+      });
       
       updateData(newLinks, newCats);
   };
@@ -2252,6 +2291,11 @@ function App() {
         categories={categories}
         onUpdateLinks={(newLinks) => updateData(newLinks, categories)}
         authToken={authToken}
+        onResetAll={() => {
+            updateData(INITIAL_LINKS, DEFAULT_CATEGORIES);
+            setIsSettingsModalOpen(false);
+            alert('已清空所有数据，恢复到初始状态！');
+        }}
       />
 
       <SearchConfigModal
@@ -2429,7 +2473,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.9.4 (支持二级目录)</span>
+                 <span>Fork 项目 v1.9.5 (支持二级目录)</span>
                </a>
             </div>
         </div>

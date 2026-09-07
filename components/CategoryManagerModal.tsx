@@ -569,7 +569,7 @@ const CategoryManagerModal: React.FC<CategoryManagerModalProps> = ({
   };
 
   const handleDeleteSub = (parentId: string, subId: string) => {
-    if (!window.confirm('确定要删除该子目录吗？')) return;
+    if (!window.confirm('确定要删除该子目录吗？该子目录下的链接将自动移至上级目录。')) return;
     const updated = categories.map(c => {
       if (c.id === parentId && c.subCategories) {
         return {

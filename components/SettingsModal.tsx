@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Save, Bot, Key, Globe, Sparkles, PauseCircle, Wrench, Box, Copy, Check, LayoutTemplate, RefreshCw, Info, Download, Sidebar, Keyboard, MousePointerClick, AlertTriangle, Package, Zap, Menu } from 'lucide-react';
+import { X, Save, Bot, Key, Globe, Sparkles, PauseCircle, Wrench, Box, Copy, Check, LayoutTemplate, RefreshCw, Info, Download, Sidebar, Keyboard, MousePointerClick, AlertTriangle, Package, Zap, Menu, RotateCcw } from 'lucide-react';
 import { AIConfig, LinkItem, Category, SiteSettings } from '../types';
 import { generateLinkDescription } from '../services/geminiService';
 import JSZip from 'jszip';
@@ -14,6 +14,7 @@ interface SettingsModalProps {
   categories: Category[];
   onUpdateLinks: (links: LinkItem[]) => void;
   authToken: string | null;
+  onResetAll?: () => void;
 }
 
 const getRandomColor = () => {
@@ -58,7 +59,7 @@ const generateSvgIcon = (text: string, color1: string, color2: string) => {
 };
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ 
-    isOpen, onClose, config, siteSettings, onSave, links, categories, onUpdateLinks, authToken 
+    isOpen, onClose, config, siteSettings, onSave, links, categories, onUpdateLinks, authToken, onResetAll 
 }) => {
   const [activeTab, setActiveTab] = useState<'site' | 'ai' | 'tools'>('site');
   const [localConfig, setLocalConfig] = useState<AIConfig>(config);
@@ -162,6 +163,22 @@ const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSave = () => {
     onSave(localConfig, localSiteSettings);
     onClose();
+  };
+
+  const [isResetting, setIsResetting] = useState(false);
+  
+  const handleResetAll = async () => {
+      if (!confirm('⚠️ 警告：此操作将清空所有书签和分类数据，恢复到初始状态！\n\n此操作不可撤销，确定要继续吗？')) return;
+      if (!confirm('再次确认：是否真的要清空所有数据？')) return;
+      
+      setIsResetting(true);
+      try {
+          if (onResetAll) {
+              onResetAll();
+          }
+      } finally {
+          setIsResetting(false);
+      }
   };
 
   const handleBulkGenerate = async () => {
@@ -1139,6 +1156,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                                 </div>
                                 {renderCodeBlock('sidebar.html', extSidebarHtml)}
                                 {renderCodeBlock('sidebar.js', extSidebarJs)}
+                            </div>
+                        </div>
+
+                        {/* Data Management Section */}
+                        <div className="space-y-3 pt-4 border-t border-slate-200 dark:border-slate-700">
+                            <h4 className="font-medium text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                <span className="flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs font-bold">4</span>
+                                数据管理
+                            </h4>
+                            <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-200 dark:border-red-900/30">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h5 className="text-sm font-medium text-red-700 dark:text-red-400 flex items-center gap-2">
+                                            <RotateCcw size={16} /> 清空所有数据
+                                        </h5>
+                                        <p className="text-xs text-red-500/80 dark:text-red-400/60 mt-1">将清空所有书签和分类，恢复到初始默认状态。此操作不可撤销。</p>
+                                    </div>
+                                    <button 
+                                        onClick={handleResetAll}
+                                        disabled={isResetting}
+                                        className="px-4 py-2 text-sm font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors shadow-sm"
+                                    >
+                                        {isResetting ? '清空中...' : '全部清空'}
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

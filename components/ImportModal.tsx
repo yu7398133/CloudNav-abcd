@@ -8,7 +8,7 @@ interface ImportModalProps {
   onClose: () => void;
   existingLinks: LinkItem[];
   categories: Category[];
-  onImport: (newLinks: LinkItem[], newCategories: Category[]) => void;
+  onImport: (newLinks: LinkItem[], newCategories: Category[], overwrite?: boolean) => void;
   onImportSearchConfig?: (searchConfig: SearchConfig) => void;
   onImportAIConfig?: (aiConfig: AIConfig) => void;
 }
@@ -38,7 +38,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const [parsedAIConfig, setParsedAIConfig] = useState<AIConfig | null>(null);
   
   // Options
-  const [importMode, setImportMode] = useState<'original' | 'merge'>('original');
+  const [importMode, setImportMode] = useState<'original' | 'merge' | 'overwrite'>('original');
   const [targetCategoryId, setTargetCategoryId] = useState<string>(categories[0]?.id || 'common');
   const [importType, setImportType] = useState<'html' | 'json'>('html');
 
@@ -143,7 +143,14 @@ const ImportModal: React.FC<ImportModalProps> = ({
       let finalLinks = [...parsedLinks];
       let finalCategories: Category[] = [];
 
-      if (importMode === 'merge') {
+      if (importMode === 'overwrite') {
+          // 覆盖模式：用导入数据完全替换现有数据
+          finalCategories = [...parsedCategories];
+          // 确保"常用推荐"分类存在
+          if (!finalCategories.some(c => c.id === 'common')) {
+              finalCategories.unshift({ id: 'common', name: '常用推荐', icon: 'Star' });
+          }
+      } else if (importMode === 'merge') {
           // Flatten all new links to the target category
           finalLinks = finalLinks.map(link => ({
               ...link,
@@ -153,50 +160,38 @@ const ImportModal: React.FC<ImportModalProps> = ({
           finalCategories = []; 
       } else {
           // Keep structure mode
-          // We need to merge categories carefully.
-          // Since parseBookmarks generates IDs for categories, if a category name already exists in `categories`, 
-          // we should remap the links to the existing category ID instead of creating a new duplicate-named category.
-          
           const nameToIdMap = new Map<string, string>();
           categories.forEach(c => nameToIdMap.set(c.name, c.id));
 
-          // Valid new categories to add
           const categoriesToAdd: Category[] = [];
 
           parsedCategories.forEach(pc => {
               if (nameToIdMap.has(pc.name)) {
-                  // Category exists, we don't add it.
-                  // But we need to know its ID to remap links.
               } else {
                   categoriesToAdd.push(pc);
-                  nameToIdMap.set(pc.name, pc.id); // Add new one to map
+                  nameToIdMap.set(pc.name, pc.id);
               }
           });
 
-          // Remap links
           finalLinks = finalLinks.map(link => {
-             // Find the name of the category this link was assigned to in the parser
              const originalCat = parsedCategories.find(c => c.id === link.categoryId) 
-                                 || categories.find(c => c.id === link.categoryId); // Fallback
+                                 || categories.find(c => c.id === link.categoryId);
              
              if (originalCat && nameToIdMap.has(originalCat.name)) {
                  return { ...link, categoryId: nameToIdMap.get(originalCat.name)! };
              }
-             // If for some reason we can't find the map, put it in common
              return { ...link, categoryId: 'common' };
           });
 
           finalCategories = categoriesToAdd;
       }
 
-      onImport(finalLinks, finalCategories);
+      onImport(finalLinks, finalCategories, importMode === 'overwrite');
       
-      // Import search config if available
       if (parsedSearchConfig && onImportSearchConfig) {
           onImportSearchConfig(parsedSearchConfig);
       }
       
-      // Import AI config if available
       if (parsedAIConfig && onImportAIConfig) {
           onImportAIConfig(parsedAIConfig);
       }
@@ -288,23 +283,23 @@ const ImportModal: React.FC<ImportModalProps> = ({
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-2">
                         <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-center border border-green-100 dark:border-green-900/30">
-                            <div className="text-xl font-bold text-green-600 dark:text-green-400">{newLinksCount}</div>
-                            <div className="text-xs text-green-700 dark:text-green-500">新增链接</div>
+                            <div className="text-xl font-bold text-green-600 dark:text-green-400">{importMode === 'overwrite' ? parsedLinks.length : newLinksCount}</div>
+                            <div className="text-xs text-green-700 dark:text-green-500">{importMode === 'overwrite' ? '导入链接' : '新增链接'}</div>
                         </div>
                         <div className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-lg text-center border border-slate-200 dark:border-slate-600">
-                            <div className="text-xl font-bold text-slate-600 dark:text-slate-400">{duplicateCount}</div>
-                            <div className="text-xs text-slate-500">重复跳过</div>
+                            <div className="text-xl font-bold text-slate-600 dark:text-slate-400">{importMode === 'overwrite' ? existingLinks.length : duplicateCount}</div>
+                            <div className="text-xs text-slate-500">{importMode === 'overwrite' ? '将被替换' : '重复跳过'}</div>
                         </div>
                          <div className="p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg text-center border border-purple-100 dark:border-purple-900/30">
-                            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{importMode === 'original' ? newCategoriesCount : 0}</div>
-                            <div className="text-xs text-purple-700 dark:text-purple-500">新增分类</div>
+                            <div className="text-xl font-bold text-purple-600 dark:text-purple-400">{importMode === 'overwrite' ? parsedCategories.length : (importMode === 'original' ? newCategoriesCount : 0)}</div>
+                            <div className="text-xs text-purple-700 dark:text-purple-500">{importMode === 'overwrite' ? '导入分类' : '新增分类'}</div>
                         </div>
                     </div>
 
-                    {newLinksCount === 0 ? (
+                    {(newLinksCount === 0 && importMode !== 'overwrite') ? (
                         <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-sm">
                             <AlertCircle size={16} />
-                            <span>未发现新链接，所有链接已存在。</span>
+                            <span>未发现新链接，所有链接已存在。可以尝试「覆盖导入」模式。</span>
                         </div>
                     ) : (
                         <div className="space-y-3">
@@ -341,6 +336,16 @@ const ImportModal: React.FC<ImportModalProps> = ({
                                     </div>
                                 </div>
                             </label>
+
+                            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${importMode === 'overwrite' ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
+                                <input type="radio" name="mode" className="mt-1" checked={importMode === 'overwrite'} onChange={() => setImportMode('overwrite')} />
+                                <div>
+                                    <div className="flex items-center gap-2 font-medium text-sm dark:text-white">
+                                        <AlertCircle size={16} className="text-orange-500" /> 覆盖导入
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-1">清空现有所有数据，用备份文件中的数据完全替换。包含 {parsedLinks.length} 个链接和 {parsedCategories.length} 个分类。</p>
+                                </div>
+                            </label>
                         </div>
                     )}
                 </div>
@@ -356,10 +361,10 @@ const ImportModal: React.FC<ImportModalProps> = ({
                     <button onClick={resetState} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">重新选择</button>
                     <button 
                         onClick={executeImport} 
-                        disabled={newLinksCount === 0}
-                        className="px-4 py-2 text-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium"
+                        disabled={importMode !== 'overwrite' && newLinksCount === 0}
+                        className={`px-4 py-2 text-sm ${importMode === 'overwrite' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium`
                     >
-                        <Check size={16} /> 确认导入 ({newLinksCount})
+                        <Check size={16} /> {importMode === 'overwrite' ? `覆盖导入 (${parsedLinks.length})` : `确认导入 (${newLinksCount})`}
                     </button>
                 </>
             )}
