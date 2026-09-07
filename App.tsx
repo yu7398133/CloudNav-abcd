@@ -229,15 +229,8 @@ function App() {
         // 清理无效链接（标题或URL为空）
         loadedLinks = loadedLinks.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
         
-        // 确保每个分类有同名子分类
-        const migrated = ensureSameNameSubCategories(loadedCategories, loadedLinks);
-        setLinks(migrated.links);
-        setCategories(migrated.categories);
-        // 如果有变更，保存到本地和云端
-        if (migrated.categories !== loadedCategories || migrated.links !== loadedLinks) {
-            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: migrated.links, categories: migrated.categories }));
-            if (authToken) syncToCloud(migrated.links, migrated.categories, authToken);
-        }
+        setLinks(loadedLinks);
+        setCategories(loadedCategories);
       } catch (e) {
         setLinks(INITIAL_LINKS);
         setCategories(DEFAULT_CATEGORIES);
@@ -593,23 +586,14 @@ function App() {
             if (res.ok) {
                 const data = await res.json();
                 if (data.links && data.links.length > 0) {
-                    // 确保每个分类有同名子分类
-                    const migrated = ensureSameNameSubCategories(data.categories || DEFAULT_CATEGORIES, data.links);
-                    
                     // 清理无效链接（标题或URL为空）
-                    const cleanedLinks = migrated.links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
-                    const linksWereCleaned = cleanedLinks.length !== migrated.links.length;
+                    const cleanedLinks = data.links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
                     
                     setLinks(cleanedLinks);
-                    setCategories(migrated.categories);
-                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: cleanedLinks, categories: migrated.categories }));
+                    setCategories(data.categories || DEFAULT_CATEGORIES);
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: cleanedLinks, categories: data.categories || DEFAULT_CATEGORIES }));
                     
-                    // 如果有迁移或清理，同步到云端
-                    if (linksWereCleaned || migrated.links !== data.links || migrated.categories !== (data.categories || DEFAULT_CATEGORIES)) {
-                        if (authToken) syncToCloud(cleanedLinks, migrated.categories, authToken);
-                    }
-                    
-                    loadLinkIcons(migrated.links);
+                    loadLinkIcons(cleanedLinks);
                     hasCloudData = true;
                 }
             } else if (res.status === 401) {
@@ -1466,41 +1450,7 @@ function App() {
   };
 
   // 确保每个一级分类都有一个同名的二级子分类，并将链接迁移过去
-  const ensureSameNameSubCategories = (cats: Category[], lnks: LinkItem[]): { categories: Category[], links: LinkItem[] } => {
-    let categoriesChanged = false;
-    let linksChanged = false;
-    const newCategories = cats.map(cat => {
-      if (!cat.subCategories || cat.subCategories.length === 0) {
-        // 没有子分类，创建一个默认子分类
-        categoriesChanged = true;
-        return {
-          ...cat,
-          subCategories: [{
-            id: `sub_${cat.id}_default`,
-            name: cat.name,
-            icon: cat.icon,
-          }]
-        };
-      }
-      // 已有子分类，不再强制添加同名子分类
-      return cat;
-    });
 
-    // 将直接属于一级分类的链接迁移到第一个子分类
-    const newLinks = lnks.map(link => {
-      const cat = newCategories.find(c => c.id === link.categoryId);
-      if (cat && cat.subCategories && cat.subCategories.length > 0 && link.categoryId === cat.id) {
-        linksChanged = true;
-        return { ...link, categoryId: cat.subCategories[0].id };
-      }
-      return link;
-    });
-
-    return {
-      categories: categoriesChanged ? newCategories : cats,
-      links: linksChanged ? newLinks : lnks,
-    };
-  };
 
   const handleCategoryClick = (cat: Category) => {
       if (cat.password && !unlockedCategoryIds.has(cat.id)) {
@@ -2485,7 +2435,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v2.0.3 (支持二级目录)</span>
+                 <span>Fork 项目 v2.0.4 (支持二级目录)</span>
                </a>
             </div>
         </div>
