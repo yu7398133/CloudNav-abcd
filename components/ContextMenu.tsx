@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { Copy, QrCode, Edit2, Trash2, Pin, Crosshair } from 'lucide-react';
+import { Copy, QrCode, Edit2, Trash2, Pin, Crosshair, ExternalLink } from 'lucide-react';
+import { AlternateUrl } from '../types';
 
 interface ContextMenuProps {
   isOpen: boolean;
@@ -12,6 +13,8 @@ interface ContextMenuProps {
   onTogglePin: () => void;
   onLocateCategory: () => void;
   showLocateCategory?: boolean;
+  alternateUrls?: AlternateUrl[];
+  onOpenAlternateUrl?: (url: string) => void;
 }
 
 const ContextMenu: React.FC<ContextMenuProps> = ({
@@ -24,7 +27,9 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   onDeleteLink,
   onTogglePin,
   onLocateCategory,
-  showLocateCategory = false
+  showLocateCategory = false,
+  alternateUrls = [],
+  onOpenAlternateUrl
 }) => {
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -67,6 +72,13 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   const menuItems = [
     { icon: Copy, label: '复制链接', onClick: onCopyLink },
     { icon: QrCode, label: '显示二维码', onClick: onShowQRCode },
+    // 备用地址直接显示在第一级菜单
+    ...alternateUrls.filter(a => a.url.trim()).map(alt => ({
+      icon: ExternalLink,
+      label: alt.label || alt.url,
+      onClick: () => onOpenAlternateUrl?.(alt.url),
+      className: 'text-blue-600 dark:text-blue-400'
+    })),
     { icon: Edit2, label: '编辑链接', onClick: onEditLink },
     { icon: Pin, label: '置顶/取消置顶', onClick: onTogglePin },
     ...(showLocateCategory ? [{ icon: Crosshair, label: '定位目录', onClick: onLocateCategory }] : []),

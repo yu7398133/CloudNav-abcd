@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Sparkles, Loader2, Pin, Wand2, Trash2 } from 'lucide-react';
-import { LinkItem, Category, AIConfig } from '../types';
+import { X, Sparkles, Loader2, Pin, Wand2, Trash2, Plus, Link2 } from 'lucide-react';
+import { LinkItem, Category, AIConfig, AlternateUrl } from '../types';
 import { generateLinkDescription } from '../services/geminiService';
 
 interface LinkModalProps {
@@ -26,6 +26,7 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
   const [autoFetchIcon, setAutoFetchIcon] = useState(true);
   const [batchMode, setBatchMode] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [alternateUrls, setAlternateUrls] = useState<AlternateUrl[]>([]);
   
   // 当模态框关闭时，重置批量模式为默认关闭状态
   useEffect(() => {
@@ -54,6 +55,7 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
         setCategoryId(initialData.categoryId);
         setPinned(initialData.pinned || false);
         setIcon(initialData.icon || '');
+        setAlternateUrls(initialData.alternateUrls || []);
       } else {
         setTitle('');
         setUrl('');
@@ -63,6 +65,7 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
         setCategoryId(defaultCategory ? defaultCategoryId : (categories[0]?.id || 'common'));
         setPinned(false);
         setIcon('');
+        setAlternateUrls([]);
       }
     }
   }, [isOpen, initialData, categories, defaultCategoryId]);
@@ -135,7 +138,8 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
       icon,
       description,
       categoryId,
-      pinned
+      pinned,
+      alternateUrls: alternateUrls.filter(a => a.url.trim())
     });
     
     // 如果有自定义图标URL，缓存到KV空间
@@ -325,6 +329,59 @@ const LinkModal: React.FC<LinkModalProps> = ({ isOpen, onClose, onSave, onDelete
                 placeholder="example.com 或 https://..."
                 />
             </div>
+          </div>
+
+          {/* 备用地址 */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium dark:text-slate-300 flex items-center gap-1">
+                <Link2 size={14} /> 备用地址 (选填)
+              </label>
+              <button
+                type="button"
+                onClick={() => setAlternateUrls([...alternateUrls, { label: '', url: '' }])}
+                className="text-xs flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              >
+                <Plus size={12} /> 添加
+              </button>
+            </div>
+            {alternateUrls.length > 0 && (
+              <div className="space-y-2">
+                {alternateUrls.map((alt, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      value={alt.label}
+                      onChange={(e) => {
+                        const updated = [...alternateUrls];
+                        updated[idx] = { ...updated[idx], label: e.target.value };
+                        setAlternateUrls(updated);
+                      }}
+                      className="w-20 p-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="标签"
+                    />
+                    <input
+                      type="text"
+                      value={alt.url}
+                      onChange={(e) => {
+                        const updated = [...alternateUrls];
+                        updated[idx] = { ...updated[idx], url: e.target.value };
+                        setAlternateUrls(updated);
+                      }}
+                      className="flex-1 p-1.5 text-xs rounded-lg border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      placeholder="https://..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setAlternateUrls(alternateUrls.filter((_, i) => i !== idx))}
+                      className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

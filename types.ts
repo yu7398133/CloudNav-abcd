@@ -1,3 +1,8 @@
+export interface AlternateUrl {
+  label: string; // e.g. "内网", "IPv6", "备用"
+  url: string;
+}
+
 export interface LinkItem {
   id: string;
   title: string;
@@ -8,6 +13,7 @@ export interface LinkItem {
   createdAt: number;
   pinned?: boolean; // New field for pinning
   pinnedOrder?: number; // Field for pinned link sorting order
+  alternateUrls?: AlternateUrl[]; // 备用地址
 }
 
 export interface Category {

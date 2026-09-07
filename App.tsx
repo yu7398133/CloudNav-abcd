@@ -2500,7 +2500,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.9.9 (支持二级目录)</span>
+                 <span>Fork 项目 v2.0.0 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -3283,6 +3283,11 @@ function App() {
                 cat.subCategories?.some(sub => sub.id === contextMenu.link!.categoryId)
               );
             })()}
+            alternateUrls={contextMenu.link?.alternateUrls}
+            onOpenAlternateUrl={(url) => {
+              window.open(url, '_blank', 'noopener,noreferrer');
+              closeContextMenu();
+            }}
           />
 
           {/* 二维码模态框 */}
