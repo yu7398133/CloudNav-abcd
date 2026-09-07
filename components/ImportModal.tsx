@@ -13,11 +13,11 @@ interface ImportModalProps {
   onImportAIConfig?: (aiConfig: AIConfig) => void;
 }
 
-const ImportModal: React.FC<ImportModalProps> = ({ 
-  isOpen, 
-  onClose, 
-  existingLinks, 
-  categories, 
+const ImportModal: React.FC<ImportModalProps> = ({
+  isOpen,
+  onClose,
+  existingLinks,
+  categories,
   onImport,
   onImportSearchConfig,
   onImportAIConfig
@@ -25,18 +25,18 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const [step, setStep] = useState<'upload' | 'preview'>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  
+
   // Analysis Results
   const [newLinksCount, setNewLinksCount] = useState(0);
   const [duplicateCount, setDuplicateCount] = useState(0);
   const [newCategoriesCount, setNewCategoriesCount] = useState(0);
-  
+
   // Staging Data
   const [parsedLinks, setParsedLinks] = useState<LinkItem[]>([]);
   const [parsedCategories, setParsedCategories] = useState<Category[]>([]);
   const [parsedSearchConfig, setParsedSearchConfig] = useState<SearchConfig | null>(null);
   const [parsedAIConfig, setParsedAIConfig] = useState<AIConfig | null>(null);
-  
+
   // Options
   const [importMode, setImportMode] = useState<'original' | 'merge' | 'overwrite'>('original');
   const [targetCategoryId, setTargetCategoryId] = useState<string>(categories[0]?.id || 'common');
@@ -49,12 +49,12 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const parseJsonBackup = async (file: File): Promise<{ links: LinkItem[], categories: Category[], searchConfig?: SearchConfig, aiConfig?: AIConfig }> => {
     const text = await file.text();
     const data = JSON.parse(text);
-    
+
     // Validate the structure
     if (!data.links || !Array.isArray(data.links) || !data.categories || !Array.isArray(data.categories)) {
       throw new Error('Invalid backup file format');
     }
-    
+
     return {
       links: data.links,
       categories: data.categories,
@@ -86,23 +86,23 @@ const ImportModal: React.FC<ImportModalProps> = ({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'html' | 'json') => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
-    
+
     setFile(selectedFile);
     setAnalyzing(true);
     setImportType(type);
 
     try {
         let result: { links: LinkItem[], categories: Category[], searchConfig?: SearchConfig, aiConfig?: AIConfig };
-        
+
         if (type === 'html') {
             result = await parseBookmarks(selectedFile);
         } else {
             result = await parseJsonBackup(selectedFile);
         }
-        
+
         // 2. Diff Logic
         const existingUrls = new Set(existingLinks.map(l => l.url.trim().replace(/\/$/, ''))); // Normalize URLs slightly
-        
+
         const uniqueNewLinks: LinkItem[] = [];
         let duplicates = 0;
 
@@ -126,12 +126,12 @@ const ImportModal: React.FC<ImportModalProps> = ({
         setNewLinksCount(uniqueNewLinks.length);
         setDuplicateCount(duplicates);
         setNewCategoriesCount(uniqueNewCategories.length);
-        
+
         setStep('preview');
     } catch (error) {
-        const errorMessage = type === 'html' 
-            ? "解析文件失败，请确保是标准的 Chrome HTML 书签文件。"
-            : "解析文件失败，请确保是有效的 cloudnav_backup.json 文件。";
+        const errorMessage = type === 'html'
+            ? "解析文件失败,请确保是标准的 Chrome HTML 书签文件。"
+            : "解析文件失败,请确保是有效的 cloudnav_backup.json 文件。";
         alert(errorMessage);
         console.error(error);
     } finally {
@@ -139,14 +139,24 @@ const ImportModal: React.FC<ImportModalProps> = ({
     }
   };
 
-  const executeImport = () => {
+  const executeImport = async () => {
       let finalLinks = [...parsedLinks];
       let finalCategories: Category[] = [];
 
       if (importMode === 'overwrite') {
           // 覆盖模式：用导入数据完全替换现有数据
-          finalCategories = [...parsedCategories];
-          // 确保"常用推荐"分类存在
+          // 使用文件中的全部分类，而非去重后的子集
+          let result: { links: LinkItem[], categories: Category[] };
+          if (file && importType === 'json') {
+              const text = await file.text();
+              const data = JSON.parse(text);
+              result = { links: data.links, categories: data.categories };
+          } else {
+              result = { links: parsedLinks, categories: parsedCategories };
+          }
+          finalLinks = result.links;
+          finalCategories = [...result.categories];
+          // 确保“常用推荐”分类存在
           if (!finalCategories.some(c => c.id === 'common')) {
               finalCategories.unshift({ id: 'common', name: '常用推荐', icon: 'Star' });
           }
@@ -157,7 +167,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
               categoryId: targetCategoryId
           }));
           // In merge mode, we do NOT add new categories from the file
-          finalCategories = []; 
+          finalCategories = [];
       } else {
           // Keep structure mode
           const nameToIdMap = new Map<string, string>();
@@ -174,9 +184,9 @@ const ImportModal: React.FC<ImportModalProps> = ({
           });
 
           finalLinks = finalLinks.map(link => {
-             const originalCat = parsedCategories.find(c => c.id === link.categoryId) 
+             const originalCat = parsedCategories.find(c => c.id === link.categoryId)
                                  || categories.find(c => c.id === link.categoryId);
-             
+
              if (originalCat && nameToIdMap.has(originalCat.name)) {
                  return { ...link, categoryId: nameToIdMap.get(originalCat.name)! };
              }
@@ -187,22 +197,22 @@ const ImportModal: React.FC<ImportModalProps> = ({
       }
 
       onImport(finalLinks, finalCategories, importMode === 'overwrite');
-      
+
       if (parsedSearchConfig && onImportSearchConfig) {
           onImportSearchConfig(parsedSearchConfig);
       }
-      
+
       if (parsedAIConfig && onImportAIConfig) {
           onImportAIConfig(parsedAIConfig);
       }
-      
+
       handleClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-lg overflow-hidden border border-slate-200 dark:border-slate-700">
-        
+
         {/* Header */}
         <div className="flex justify-between items-center p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
           <h3 className="text-lg font-semibold dark:text-white flex items-center gap-2">
@@ -215,20 +225,20 @@ const ImportModal: React.FC<ImportModalProps> = ({
 
         {/* Content */}
         <div className="p-6">
-            
+
             {step === 'upload' && (
                 <div className="space-y-4">
                     {/* HTML Import Option */}
                     <div className="flex flex-col items-center justify-center space-y-4 py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                          onClick={() => fileInputRef.current?.click()}>
-                        <input 
-                            type="file" 
-                            ref={fileInputRef} 
-                            className="hidden" 
-                            accept=".html" 
-                            onChange={(e) => handleFileChange(e, 'html')} 
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept=".html"
+                            onChange={(e) => handleFileChange(e, 'html')}
                         />
-                        
+
                         {analyzing && importType === 'html' ? (
                             <div className="flex flex-col items-center">
                                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-2"></div>
@@ -246,18 +256,18 @@ const ImportModal: React.FC<ImportModalProps> = ({
                             </>
                         )}
                     </div>
-                    
+
                     {/* JSON Import Option */}
                     <div className="flex flex-col items-center justify-center space-y-4 py-8 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                          onClick={() => jsonFileInputRef.current?.click()}>
-                        <input 
-                            type="file" 
-                            ref={jsonFileInputRef} 
-                            className="hidden" 
-                            accept=".json" 
-                            onChange={(e) => handleFileChange(e, 'json')} 
+                        <input
+                            type="file"
+                            ref={jsonFileInputRef}
+                            className="hidden"
+                            accept=".json"
+                            onChange={(e) => handleFileChange(e, 'json')}
                         />
-                        
+
                         {analyzing && importType === 'json' ? (
                             <div className="flex flex-col items-center">
                                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-green-500 mb-2"></div>
@@ -270,7 +280,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
                                 </div>
                                 <div className="text-center">
                                     <p className="text-sm font-medium dark:text-white">导入 cloudnav_backup.json 文件</p>
-                                    <p className="text-xs text-slate-500 mt-1">与 WebDAV 备份格式一致，便于数据迁移</p>
+                                    <p className="text-xs text-slate-500 mt-1">与 WebDAV 备份格式一致,便于数据迁移</p>
                                 </div>
                             </>
                         )}
@@ -299,19 +309,19 @@ const ImportModal: React.FC<ImportModalProps> = ({
                     {(newLinksCount === 0 && importMode !== 'overwrite') ? (
                         <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-sm">
                             <AlertCircle size={16} />
-                            <span>未发现新链接，所有链接已存在。可以尝试「覆盖导入」模式。</span>
+                            <span>未发现新链接,所有链接已存在。可以尝试「覆盖导入」模式。</span>
                         </div>
                     ) : (
                         <div className="space-y-3">
                             <label className="text-sm font-medium dark:text-slate-300">导入方式</label>
-                            
+
                             <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-all ${importMode === 'original' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : 'border-slate-200 dark:border-slate-700'}`}>
                                 <input type="radio" name="mode" className="mt-1" checked={importMode === 'original'} onChange={() => setImportMode('original')} />
                                 <div>
                                     <div className="flex items-center gap-2 font-medium text-sm dark:text-white">
                                         <ListTree size={16} /> 保持原目录结构
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-1">如果分类不存在，将自动创建。</p>
+                                    <p className="text-xs text-slate-500 mt-1">如果分类不存在,将自动创建。</p>
                                 </div>
                             </label>
 
@@ -322,7 +332,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
                                         <FolderInput size={16} /> 全部导入到指定目录
                                     </div>
                                     <div className="mt-2">
-                                        <select 
+                                        <select
                                             value={targetCategoryId}
                                             onChange={(e) => setTargetCategoryId(e.target.value)}
                                             disabled={importMode !== 'merge'}
@@ -343,7 +353,7 @@ const ImportModal: React.FC<ImportModalProps> = ({
                                     <div className="flex items-center gap-2 font-medium text-sm dark:text-white">
                                         <AlertCircle size={16} className="text-orange-500" /> 覆盖导入
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-1">清空现有所有数据，用备份文件中的数据完全替换。包含 {parsedLinks.length} 个链接和 {parsedCategories.length} 个分类。</p>
+                                    <p className="text-xs text-slate-500 mt-1">清空现有所有数据,用备份文件中的数据完全替换。包含 {parsedLinks.length} 个链接和 {parsedCategories.length} 个分类。</p>
                                 </div>
                             </label>
                         </div>
@@ -359,8 +369,8 @@ const ImportModal: React.FC<ImportModalProps> = ({
             ) : (
                 <>
                     <button onClick={resetState} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">重新选择</button>
-                    <button 
-                        onClick={executeImport} 
+                    <button
+                        onClick={executeImport}
                         disabled={importMode !== 'overwrite' && newLinksCount === 0}
                         className={`px-4 py-2 text-sm ${importMode === 'overwrite' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-600 hover:bg-blue-700'} text-white disabled:opacity-50 disabled:cursor-not-allowed rounded-lg transition-colors flex items-center gap-2 font-medium`}
                     >
