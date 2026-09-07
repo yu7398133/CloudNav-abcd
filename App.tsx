@@ -182,6 +182,28 @@ function App() {
   
   // --- Helpers & Sync Logic ---
 
+  // 修复子目录ID重复的数据迁移函数
+  const deduplicateSubCategoryIds = (cats: Category[], links: LinkItem[]): { categories: Category[]; links: LinkItem[] } => {
+    const idSeen = new Set<string>();
+    const fixCategory = (cat: Category): Category => {
+      if (!cat.subCategories || cat.subCategories.length === 0) return cat;
+      const fixedSubs: Category[] = [];
+      for (const sub of cat.subCategories) {
+        if (idSeen.has(sub.id)) {
+          // 重复ID，生成新的唯一ID
+          const newId = `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          fixedSubs.push({ ...sub, id: newId });
+        } else {
+          idSeen.add(sub.id);
+          fixedSubs.push(sub);
+        }
+      }
+      return { ...cat, subCategories: fixedSubs };
+    };
+    const fixedCategories = cats.map(fixCategory);
+    return { categories: fixedCategories, links };
+  };
+
   const loadFromLocal = () => {
     const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (stored) {
@@ -229,6 +251,11 @@ function App() {
         // 清理无效链接（标题或URL为空）
         loadedLinks = loadedLinks.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
         
+        // 修复子目录ID重复问题
+        const migrated = deduplicateSubCategoryIds(loadedCategories, loadedLinks);
+        loadedCategories = migrated.categories;
+        loadedLinks = migrated.links;
+
         setLinks(loadedLinks);
         setCategories(loadedCategories);
       } catch (e) {
@@ -587,11 +614,17 @@ function App() {
                 const data = await res.json();
                 if (data.links && data.links.length > 0) {
                     // 清理无效链接（标题或URL为空）
-                    const cleanedLinks = data.links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
+                    let cleanedLinks = data.links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
+                    let loadedCats = data.categories || DEFAULT_CATEGORIES;
+                    
+                    // 修复子目录ID重复问题
+                    const migrated = deduplicateSubCategoryIds(loadedCats, cleanedLinks);
+                    loadedCats = migrated.categories;
+                    cleanedLinks = migrated.links;
                     
                     setLinks(cleanedLinks);
-                    setCategories(data.categories || DEFAULT_CATEGORIES);
-                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: cleanedLinks, categories: data.categories || DEFAULT_CATEGORIES }));
+                    setCategories(loadedCats);
+                    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ links: cleanedLinks, categories: loadedCats }));
                     
                     loadLinkIcons(cleanedLinks);
                     hasCloudData = true;
@@ -2271,7 +2304,7 @@ function App() {
         {/* Categories List */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-hide">
             <button
-              onClick={() => { setSelectedCategory('all'); setSidebarOpen(false); }}
+              onClick={() => { setSelectedCategory('all'); setSelectedSubCategory(null); setSidebarOpen(false); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
                 selectedCategory === 'all' 
                   ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium' 
@@ -2435,7 +2468,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v2.0.4 (支持二级目录)</span>
+                 <span>Fork 项目 v2.0.5 (支持二级目录)</span>
                </a>
             </div>
         </div>
