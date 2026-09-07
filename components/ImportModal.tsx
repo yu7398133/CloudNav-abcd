@@ -115,8 +115,13 @@ const ImportModal: React.FC<ImportModalProps> = ({
             }
         });
 
-        // 3. Category Diff
+        // 3. Category Diff (include subcategories)
         const existingCategoryNames = new Set(categories.map(c => c.name));
+        categories.forEach(c => {
+            if (c.subCategories) {
+                c.subCategories.forEach(sub => existingCategoryNames.add(sub.name));
+            }
+        });
         const uniqueNewCategories = result.categories.filter(c => !existingCategoryNames.has(c.name));
 
         setParsedLinks(uniqueNewLinks);
@@ -160,22 +165,67 @@ const ImportModal: React.FC<ImportModalProps> = ({
           finalCategories = []; 
       } else {
           // Keep structure mode
-          const nameToIdMap = new Map<string, string>();
-          categories.forEach(c => nameToIdMap.set(c.name, c.id));
-
-          const categoriesToAdd: Category[] = [];
-
-          parsedCategories.forEach(pc => {
-              if (nameToIdMap.has(pc.name)) {
-              } else {
-                  categoriesToAdd.push(pc);
-                  nameToIdMap.set(pc.name, pc.id);
+          // Build flat maps for ALL categories and subcategories (imported + existing)
+          const importedFlatMap = new Map<string, Category>();
+          parsedCategories.forEach(c => {
+              importedFlatMap.set(c.id, c);
+              if (c.subCategories) {
+                  c.subCategories.forEach(sub => importedFlatMap.set(sub.id, sub));
               }
           });
 
+          const existingFlatMap = new Map<string, Category>();
+          categories.forEach(c => {
+              existingFlatMap.set(c.id, c);
+              if (c.subCategories) {
+                  c.subCategories.forEach(sub => existingFlatMap.set(sub.id, sub));
+              }
+          });
+
+          // Name -> existing ID map (includes subcategories)
+          const nameToIdMap = new Map<string, string>();
+          categories.forEach(c => {
+              nameToIdMap.set(c.name, c.id);
+              if (c.subCategories) {
+                  c.subCategories.forEach(sub => nameToIdMap.set(sub.name, sub.id));
+              }
+          });
+
+          // Build categories to add (new top-level cats + new subcats for existing parents)
+          const categoriesToAdd: Category[] = [];
+          const addedCatNames = new Set<string>();
+
+          parsedCategories.forEach(pc => {
+              const existingParent = categories.find(c => c.name === pc.name);
+              
+              if (!existingParent && !addedCatNames.has(pc.name)) {
+                  // New top-level category - add it with its subcategories
+                  categoriesToAdd.push(pc);
+                  addedCatNames.add(pc.name);
+              } else if (existingParent && pc.subCategories) {
+                  // Parent exists - check if any subcategories are new
+                  const existingSubNames = new Set(
+                      (existingParent.subCategories || []).map(s => s.name)
+                  );
+                  const newSubs = pc.subCategories.filter(s => !existingSubNames.has(s.name));
+                  if (newSubs.length > 0) {
+                      // Add new subcategories to the existing parent
+                      categoriesToAdd.push({
+                          ...existingParent,
+                          subCategories: [
+                              ...(existingParent.subCategories || []),
+                              ...newSubs
+                          ]
+                      });
+                      newSubs.forEach(s => addedCatNames.add(s.name));
+                  }
+              }
+          });
+
+          // Map links: find category/subcategory from imported data, then map to existing ID
           finalLinks = finalLinks.map(link => {
-             const originalCat = parsedCategories.find(c => c.id === link.categoryId) 
-                                 || categories.find(c => c.id === link.categoryId);
+             const originalCat = importedFlatMap.get(link.categoryId) 
+                                 || existingFlatMap.get(link.categoryId);
              
              if (originalCat && nameToIdMap.has(originalCat.name)) {
                  return { ...link, categoryId: nameToIdMap.get(originalCat.name)! };
