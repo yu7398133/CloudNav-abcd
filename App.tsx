@@ -1209,10 +1209,14 @@ function App() {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      // 获取当前分类下的所有链接
-      const categoryLinks = links.filter(link => 
-        selectedCategory === 'all' || link.categoryId === selectedCategory
-      );
+      // 直接通过ID找到被拖拽和目标链接，获取它们的categoryId
+      const activeLink = links.find(l => l.id === active.id);
+      const overLink = links.find(l => l.id === over.id);
+      if (!activeLink || !overLink) return;
+
+      // 用实际的categoryId过滤同组链接（支持子目录）
+      const groupCategoryId = activeLink.categoryId;
+      const categoryLinks = links.filter(link => link.categoryId === groupCategoryId);
       
       // 找到被拖拽元素和目标元素的索引
       const activeIndex = categoryLinks.findIndex(link => link.id === active.id);
@@ -2496,7 +2500,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.9.8 (支持二级目录)</span>
+                 <span>Fork 项目 v1.9.9 (支持二级目录)</span>
                </a>
             </div>
         </div>
