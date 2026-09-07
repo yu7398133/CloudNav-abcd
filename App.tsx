@@ -2496,7 +2496,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.9.6 (支持二级目录)</span>
+                 <span>Fork 项目 v1.9.7 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -2897,7 +2897,7 @@ function App() {
                             )
                          }
                      </h2>
-                     {selectedCategory !== 'all' && selectedCategory !== ORPHAN_CATEGORY_ID && !isCategoryLocked(selectedCategory) && (
+                     {selectedCategory !== 'all' && !isCategoryLocked(selectedCategory) && (
                          isSortingMode === selectedCategory ? (
                              <div className="flex gap-2">
                                  <button 
