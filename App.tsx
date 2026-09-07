@@ -1554,29 +1554,7 @@ function App() {
 
   const handleUpdateCategories = (newCats: Category[]) => {
       if (!authToken) { setIsAuthOpen(true); return; }
-      
-      // 清理孤立链接：删除子目录后，将其下的链接移至父目录
-      const allCatIds = new Set(newCats.map(c => c.id));
-      const subIdToParentId = new Map<string, string>();
-      newCats.forEach(cat => {
-          if (cat.subCategories) {
-              cat.subCategories.forEach(sub => {
-                  subIdToParentId.set(sub.id, cat.id);
-                  allCatIds.add(sub.id);
-              });
-          }
-      });
-      
-      const cleanedLinks = links.map(link => {
-          if (!allCatIds.has(link.categoryId)) {
-              // 找不到对应分类，尝试移至父目录
-              const parentId = subIdToParentId.get(link.categoryId);
-              return { ...link, categoryId: parentId || 'common' };
-          }
-          return link;
-      });
-      
-      updateData(cleanedLinks, newCats);
+      updateData(links, newCats);
   };
 
   const handleDeleteCategory = (catId: string) => {
@@ -1956,6 +1934,26 @@ function App() {
       });
   }, [links, categories, unlockedCategoryIds]);
 
+  // 计算所有有效的分类ID集合（包括子目录）
+  const allValidCategoryIds = useMemo(() => {
+    const ids = new Set<string>();
+    categories.forEach(cat => {
+      ids.add(cat.id);
+      if (cat.subCategories) {
+        cat.subCategories.forEach(sub => ids.add(sub.id));
+      }
+    });
+    return ids;
+  }, [categories]);
+
+  // 孤立链接（categoryId不在任何现有分类中）
+  const orphanedLinks = useMemo(() => {
+    return links.filter(l => l.title && l.title.trim() && l.url && l.url.trim() && !allValidCategoryIds.has(l.categoryId));
+  }, [links, allValidCategoryIds]);
+
+  // 虚拟"未分类"分类ID
+  const ORPHAN_CATEGORY_ID = '__orphaned__';
+
   const displayedLinks = useMemo(() => {
     // 过滤掉无效链接（标题或URL为空）
     let result = links.filter(l => l.title && l.title.trim() && l.url && l.url.trim());
@@ -1974,7 +1972,10 @@ function App() {
     }
 
     // Category Filter
-    if (selectedCategory !== 'all') {
+    if (selectedCategory === ORPHAN_CATEGORY_ID) {
+      // 显示孤立链接
+      result = result.filter(l => !allValidCategoryIds.has(l.categoryId));
+    } else if (selectedCategory !== 'all') {
       if (selectedSubCategory) {
         // 如果选中了子目录，只显示该子目录的链接
         result = result.filter(l => l.categoryId === selectedSubCategory);
@@ -1996,7 +1997,7 @@ function App() {
       const bOrder = b.order !== undefined ? b.order : b.createdAt;
       return aOrder - bOrder;
     });
-  }, [links, selectedCategory, selectedSubCategory, searchQuery, categories, unlockedCategoryIds]);
+  }, [links, selectedCategory, selectedSubCategory, searchQuery, categories, unlockedCategoryIds, allValidCategoryIds]);
 
   // 计算其他目录的搜索结果
   const otherCategoryResults = useMemo(() => {
@@ -2423,6 +2424,28 @@ function App() {
                   </div>
                 );
             })}
+
+            {/* 未分类（孤立链接） */}
+            {orphanedLinks.length > 0 && (
+              <div>
+                <button
+                  onClick={() => { setSelectedCategory(ORPHAN_CATEGORY_ID); setSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all group ${
+                    selectedCategory === ORPHAN_CATEGORY_ID
+                      ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-medium'
+                      : 'text-amber-500 dark:text-amber-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <div className={`p-1.5 rounded-lg transition-colors flex items-center justify-center ${selectedCategory === ORPHAN_CATEGORY_ID ? 'bg-amber-100 dark:bg-amber-800' : 'bg-amber-50 dark:bg-amber-900/30'}`}>
+                    <AlertCircle size={16} />
+                  </div>
+                  <span className="truncate flex-1 text-left">未分类</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400">
+                    {orphanedLinks.length}
+                  </span>
+                </button>
+              </div>
+            )}
         </div>
 
         {/* Footer Actions */}
@@ -2473,7 +2496,7 @@ function App() {
                  title="Fork this project on GitHub"
                >
                  <GitFork size={14} />
-                 <span>Fork 项目 v1.9.5 (支持二级目录)</span>
+                 <span>Fork 项目 v1.9.6 (支持二级目录)</span>
                </a>
             </div>
         </div>
@@ -2832,6 +2855,8 @@ function App() {
                      <h2 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-2">
                          {selectedCategory === 'all' 
                             ? (searchQuery ? '搜索结果' : '所有链接') 
+                            : selectedCategory === ORPHAN_CATEGORY_ID
+                            ? (searchQuery ? '搜索结果' : '未分类链接')
                             : (
                                 <>
                                     {selectedSubCategory 
@@ -2872,7 +2897,7 @@ function App() {
                             )
                          }
                      </h2>
-                     {selectedCategory !== 'all' && !isCategoryLocked(selectedCategory) && (
+                     {selectedCategory !== 'all' && selectedCategory !== ORPHAN_CATEGORY_ID && !isCategoryLocked(selectedCategory) && (
                          isSortingMode === selectedCategory ? (
                              <div className="flex gap-2">
                                  <button 
@@ -2990,7 +3015,7 @@ function App() {
                             <>
                                 <Search size={40} className="opacity-30 mb-4" />
                                 <p>没有找到相关内容</p>
-                                {selectedCategory !== 'all' && (
+                                {selectedCategory !== 'all' && selectedCategory !== ORPHAN_CATEGORY_ID && (
                                     <button onClick={() => setIsModalOpen(true)} className="mt-4 text-blue-500 hover:underline">添加一个?</button>
                                 )}
                             </>
@@ -3233,7 +3258,7 @@ function App() {
             categories={categories}
             initialData={editingLink || (prefillLink as LinkItem)}
             aiConfig={aiConfig}
-            defaultCategoryId={selectedCategory !== 'all' ? selectedCategory : undefined}
+            defaultCategoryId={(selectedCategory !== 'all' && selectedCategory !== ORPHAN_CATEGORY_ID) ? selectedCategory : undefined}
           />
 
           {/* 右键菜单 */}
